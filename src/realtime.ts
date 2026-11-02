@@ -1,3 +1,4 @@
+import type { RoomBridge } from "./roomState";
 import { useEffect, useRef, useState } from "react";
 import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import { validPlayer, validBubble, type Player, type Bubble } from "./model";
@@ -19,6 +20,7 @@ export function useRoom(
   onBubbles: (b: Bubble[]) => void,
   onPop: (id: string) => void,
   getSnapshot: () => { bubbles: Bubble[]; popped: string[] },
+  shared?: RoomBridge,
 ) {
   const [others, setOthers] = useState<Record<string, Player>>({});
   const [counts, setCounts] = useState<number[]>(Array(10).fill(0));
@@ -80,6 +82,10 @@ export function useRoom(
       },
     });
     channel.current = ch;
+    shared?.bind((v) => {
+      if (joined.current)
+        void ch.send({ type: "broadcast", event: "shared-v4", payload: v });
+    });
     const announce = () => {
       if (roomReady && lobbyReady) {
         void lobby.track({ id: player.current.id, room }).then((result) => {
@@ -118,22 +124,32 @@ export function useRoom(
     ch.on("presence", { event: "sync" }, () => {
       if (!alive) return;
       members.clear();
+      const sharedMembers: string[] = [];
       const snapshots: Record<string, Player> = {};
       Object.values(ch.presenceState())
         .flat()
         .forEach((raw) => {
           const p = (raw as unknown as { player: unknown }).player;
+          if (
+            validPlayer(p) &&
+            (raw as unknown as { features?: number }).features === 4
+          )
+            sharedMembers.push(p.id);
           if (validPlayer(p) && p.id !== player.current.id) {
             members.add(p.id);
             snapshots[p.id] = p;
           }
         });
+      shared?.roster(sharedMembers);
       setOthers((prev) =>
         Object.fromEntries(
           [...members].map((id) => [id, prev[id] || snapshots[id]]),
         ),
       );
     })
+      .on("broadcast", { event: "shared-v4" }, ({ payload }) => {
+        if (alive) shared?.event(payload);
+      })
       .on("broadcast", { event: "player" }, ({ payload }) => {
         if (alive && validPlayer(payload) && payload.id !== player.current.id) {
           setOthers((prev) => ({ ...prev, [payload.id]: payload }));
@@ -192,13 +208,17 @@ export function useRoom(
         roomReady = s === "SUBSCRIBED";
         joined.current = roomReady;
         if (roomReady) {
-          const result = await ch.track({ player: player.current });
+          const result = await ch.track({
+            player: player.current,
+            features: 4,
+          });
           if (!alive) return;
           if (result !== "ok") {
             joined.current = false;
             setStatus("error");
             return;
           }
+          shared?.connected(true);
           announce();
           void ch.send({
             type: "broadcast",
@@ -211,13 +231,14 @@ export function useRoom(
           s === "CLOSED"
         ) {
           setStatus("reconnecting");
+          shared?.connected(false);
           setOthers({});
           void lobby.untrack();
         }
       });
     const online = () => {
       if (alive && roomReady) {
-        void ch.track({ player: player.current });
+        void ch.track({ player: player.current, features: 4 });
         announce();
       }
     };
@@ -231,6 +252,8 @@ export function useRoom(
       clearTimeout(snapshotTimer);
       joined.current = false;
       channel.current = null;
+      shared?.connected(false);
+      shared?.bind(null);
       window.removeEventListener("online", online);
       document.removeEventListener("visibilitychange", visibility);
       void client.removeChannel(ch);

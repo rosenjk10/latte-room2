@@ -32,7 +32,11 @@ export function advanceMotion(
 ) {
   dt = Math.min(0.05, Math.max(0, dt));
   const consuming =
-    (p.action === "drink" || p.action === "eat") && actionProgress(p, now) < 1;
+    (p.action === "drink" ||
+      p.action === "eat" ||
+      p.action === "water" ||
+      p.action === "sit") &&
+    actionProgress(p, now) < 1;
   state.walk = damp(
     state.walk,
     p.seat === null && speed > 0.07 && !consuming

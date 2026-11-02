@@ -1,3 +1,14 @@
+import { useSharedRoom } from "./useSharedRoom";
+import {
+  BOOKS,
+  THOUGHTS,
+  roomLayout,
+  seatApproach,
+  nearestWalkable,
+  type Point,
+} from "./world";
+import { findPath } from "./navigation";
+import InteractionPanel, { type Interaction } from "./InteractionPanel";
 import {
   Component,
   useCallback,
@@ -66,13 +77,14 @@ const ROOM_NAMES = [
 export default function App() {
   const [room, setRoom] = useState<number | null>(null),
     [panel, setPanel] = useState<
-      "rooms" | "drink" | "dessert" | "sound" | "guestbook" | null
+      "rooms" | "drink" | "dessert" | "sound" | "guestbook" | "book" | null
     >(null);
   const [animal, setAnimal] = useState<Animal>("cat"),
     [name, setName] = useState(initialNickname);
   const player = useRef<Player>({
     id: crypto.randomUUID(),
     name,
+    clientVersion: 4,
     animal: "cat",
     x: 0,
     z: 3.4,
@@ -87,7 +99,183 @@ export default function App() {
     drinkPlaced: false,
     dessertPlaced: false,
   });
-  const controls = useRef<Controls>({ x: 0, z: 0, keys: new Set() });
+  const controls = useRef<Controls>({ x: 0, z: 0, keys: new Set(), path: [] });
+  const garden = useSharedRoom(room, player.current.id, configured, player);
+  const [context, setContext] = useState<Interaction | null>(null),
+    [nearby, setNearby] = useState<Interaction | null>(null),
+    [selectedBook, setSelectedBook] = useState<number | null>(null),
+    [quote, setQuote] = useState(THOUGHTS[0]),
+    [eye, setEye] = useState(false),
+    [pendingInteraction, setPendingInteraction] = useState(false);
+  const operation = useRef(0);
+  const bloomMessages = useRef(new Set<string>());
+  useEffect(() => {
+    if (!garden.ready) return;
+    garden.state.flowers.forEach((f, i) => {
+      const key = `${room}/${i}/${f.bloomAt}`;
+      if (f.stage === 4 && !bloomMessages.current.has(key)) {
+        bloomMessages.current.add(key);
+        setNotice("함께 돌본 작은 꽃이 피었어요. 오늘의 온기를 나눠요.");
+      }
+    });
+    if (bloomMessages.current.size > 64)
+      bloomMessages.current = new Set([...bloomMessages.current].slice(-32));
+  }, [garden.state, garden.ready, room]);
+  controls.current.cancelAuto = () => {
+    operation.current++;
+  };
+  function clearAuto() {
+    operation.current++;
+    controls.current.path = [];
+    controls.current.destination = null;
+    controls.current.arrive = null;
+  }
+  function openBook(i: number) {
+    if (room === null) return;
+    clearAuto();
+    setSelectedBook(i);
+    setQuote(THOUGHTS[Math.floor(Math.random() * THOUGHTS.length)]);
+    audio.play("page");
+    setPanel("book");
+  }
+  function goTo(point: Point, done?: () => void) {
+    if (room === null) return;
+    if (
+      actionProgress(player.current) < 1 &&
+      player.current.action !== "brew"
+    ) {
+      setNotice("잠깐 쉬고 나서 걸어가요.");
+      return;
+    }
+    if (player.current.seat !== null) stand();
+    clearAuto();
+    const token = operation.current,
+      path = findPath(player.current, point, room);
+    if (!path.length) {
+      setNotice("그곳으로 가는 길이 좁아요. 다른 곳을 골라주세요.");
+      return;
+    }
+    controls.current.path = path;
+    controls.current.destination = path.at(-1)!;
+    controls.current.arrive = () => {
+      if (token === operation.current) done?.();
+    };
+    setNotice("작은 원을 따라 천천히 걸어요.");
+  }
+  function releaseSeat() {
+    const i = player.current.seat;
+    if (i === null) return;
+    const claim = garden.state.seats[i];
+    if (claim?.owner === player.current.id)
+      void garden.request("release", i, undefined, claim.token);
+  }
+  function goSit(i: number) {
+    if (
+      Object.values(net.others).some(
+        (p) =>
+          p.seat === i &&
+          (p.clientVersion !== 4 || garden.state.seats[i]?.owner === p.id),
+      )
+    ) {
+      setNotice("다른 손님이 쉬고 있는 자리예요.");
+      return;
+    }
+    if (room === null || busy || pendingInteraction) return;
+    goTo(seatApproach(i, room), () => {
+      void claimSeat(i);
+    });
+  }
+  async function claimSeat(i: number) {
+    const token = operation.current;
+    setPendingInteraction(true);
+    const result = await garden.request("claim", i);
+    if (token !== operation.current) return;
+    setPendingInteraction(false);
+    if (!result.ok) {
+      setNotice(result.reason);
+      return;
+    }
+    const s = SEATS[i];
+    Object.assign(player.current, {
+      x: s.x,
+      z: s.z,
+      angle: s.angle,
+      seat: i,
+      book: selectedBook,
+      reading: selectedBook !== null,
+    });
+    setSeated(true);
+    setContext(null);
+    startAction("sit", () => {});
+    setNotice(
+      selectedBook !== null ? "책과 함께 잠깐 쉬어요." : "편안하게 앉았어요.",
+    );
+  }
+  function waterPot(i: number) {
+    if (room === null || busy || pendingInteraction) return;
+    const pot = roomLayout(room).pots[i],
+      p = player.current,
+      dx = p.x - pot.x,
+      dz = p.z - pot.z,
+      d = Math.hypot(dx, dz) || 1;
+    const point = nearestWalkable(
+      { x: pot.x + (dx / d) * 0.78, z: pot.z + (dz / d) * 0.78 },
+      room,
+    );
+    goTo(point, () => {
+      void (async () => {
+        const token = operation.current;
+        setPendingInteraction(true);
+        const result = await garden.request(
+          "water",
+          i,
+          garden.state.flowers[i].version,
+        );
+        if (token !== operation.current) return;
+        setPendingInteraction(false);
+        if (!result.ok) {
+          setNotice(result.reason);
+          return;
+        }
+        Object.assign(player.current, {
+          reading: false,
+          book: null,
+          wateringPot: i,
+          angle: Math.atan2(pot.x - player.current.x, pot.z - player.current.z),
+        });
+        startAction("water", () => {
+          player.current.wateringPot = null;
+        });
+        setNotice(
+          garden.state.flowers[i].stage === 3
+            ? "작은 꽃이 피었어요. 우리처럼 천천히 자랐네요."
+            : "작은 물방울이 정원을 돌봐요.",
+        );
+      })();
+    });
+  }
+  function nearbyChanged(next: Interaction | null) {
+    setNearby((old) =>
+      old?.kind === next?.kind && old?.id === next?.id ? old : next,
+    );
+  }
+  useEffect(() => {
+    const p = player.current;
+    if (
+      p.seat !== null &&
+      garden.ready &&
+      garden.state.seats[p.seat]?.owner !== p.id
+    ) {
+      const safe = seatApproach(p.seat, room ?? 1);
+      p.x = safe.x;
+      p.z = safe.z;
+      p.seat = null;
+      p.reading = false;
+      p.book = null;
+      setSeated(false);
+      setNotice("자리를 다시 정리했어요. 가까운 의자를 골라주세요.");
+    }
+  }, [garden.state, garden.ready]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]),
     [bursts, setBursts] = useState<Burst[]>([]);
   const bubblesRef = useRef<Bubble[]>([]),
@@ -123,7 +311,10 @@ export default function App() {
     },
     [],
   );
-  function startAction(action: "brew" | "drink" | "eat", finish: () => void) {
+  function startAction(
+    action: "brew" | "drink" | "eat" | "water" | "sit",
+    finish: () => void,
+  ) {
     const p = player.current;
     if (actionProgress(p) < 1) return;
     p.action = action;
@@ -131,7 +322,16 @@ export default function App() {
     setBusy(true);
     if (action === "brew")
       audio.startBrew(p.brewDrink ?? selectedDrink, p.actionAt);
-    else audio.play(action === "drink" ? "sip" : "eat");
+    else
+      audio.play(
+        action === "drink"
+          ? "sip"
+          : action === "eat"
+            ? "eat"
+            : action === "water"
+              ? "water"
+              : "cup",
+      );
     actionTimer.current = setTimeout(() => {
       finish();
       p.action = "idle";
@@ -154,6 +354,8 @@ export default function App() {
     setPanel(null);
   }
   function sip() {
+    player.current.reading = false;
+    player.current.book = null;
     if (!player.current.drink || (player.current.drinkLevel ?? 4) <= 0) return;
     startAction("drink", () => {
       Object.assign(player.current, consume(player.current, "drink"));
@@ -165,6 +367,8 @@ export default function App() {
     });
   }
   function eat() {
+    player.current.reading = false;
+    player.current.book = null;
     if (player.current.dessert === null) return;
     startAction("eat", () => {
       Object.assign(player.current, consume(player.current, "eat"));
@@ -219,10 +423,17 @@ export default function App() {
       audio.pop();
     }
   }, []);
-  const net = useRoom(room, player, receiveBubbles, pop, () => ({
-    bubbles: bubblesRef.current,
-    popped: [...popped.current.keys()].slice(-200),
-  }));
+  const net = useRoom(
+    room,
+    player,
+    receiveBubbles,
+    pop,
+    () => ({
+      bubbles: bubblesRef.current,
+      popped: [...popped.current.keys()].slice(-200),
+    }),
+    garden.bridge,
+  );
   useEffect(() => {
     const t = setInterval(() => {
       const now = Date.now();
@@ -293,6 +504,15 @@ export default function App() {
     };
   }, []);
   function join(next: number) {
+    releaseSeat();
+    clearAuto();
+    setPendingInteraction(false);
+    setSelectedBook(null);
+    setContext(null);
+    setNearby(null);
+    setEye(false);
+    player.current.reading = false;
+    player.current.book = null;
     cancelAction();
     setCameraReset((n) => n + 1);
     const p = player.current;
@@ -316,23 +536,26 @@ export default function App() {
     setPanel(null);
   }
   function seat(i: number) {
-    if (room === null) return;
-    if (Object.values(net.others).some((p) => p.seat === i)) {
-      setNotice("이미 누군가 쉬고 있어요. 옆자리는 어떨까요?");
-      return;
-    }
-    const s = SEATS[i];
-    Object.assign(player.current, { x: s.x, z: s.z, angle: s.angle, seat: i });
-    setSeated(true);
-    setNotice("잠시 앉아 쉬어요. 일어나기로 다시 걸을 수 있어요.");
+    clearAuto();
+    if (room !== null) setContext({ kind: "chair", id: i });
   }
   function stand() {
-    player.current.drinkPlaced = false;
-    player.current.dessertPlaced = false;
-    audio.play("cup");
-    const s = SEATS[player.current.seat ?? 0];
-    Object.assign(player.current, { seat: null, x: s.x, z: s.z + 0.85 });
+    releaseSeat();
+    clearAuto();
+    const i = player.current.seat ?? 0,
+      s = seatApproach(i, room ?? 1);
+    Object.assign(player.current, {
+      seat: null,
+      x: s.x,
+      z: s.z,
+      reading: false,
+      book: null,
+      drinkPlaced: false,
+      dessertPlaced: false,
+    });
     setSeated(false);
+    setContext(null);
+    audio.play("cup");
   }
   function blow(giant = false) {
     const now = Date.now();
@@ -385,6 +608,9 @@ export default function App() {
       data-room={room ?? "welcome"}
       data-bubbles={bubbles.length}
       data-seated={seated}
+      data-reading={!!player.current.reading}
+      data-shared-ready={garden.ready}
+      data-flowers={garden.state.flowers.map((f) => f.stage).join(",")}
       data-drink-level={player.current.drinkLevel ?? 4}
       data-dessert-bites={player.current.dessertBites ?? 3}
       data-action={player.current.action ?? "idle"}
@@ -410,7 +636,21 @@ export default function App() {
           cameraReset={cameraReset}
           onGuestbook={() => setPanel("guestbook")}
           brewDrink={selectedDrink}
-          blocked={panel !== null}
+          blocked={panel !== null || pendingInteraction}
+          room={room ?? 1}
+          eye={eye}
+          shared={garden.state}
+          sharedReady={garden.ready}
+          onBook={openBook}
+          onPot={(i) => {
+            clearAuto();
+            setContext({ kind: "pot", id: i });
+          }}
+          onNearby={nearbyChanged}
+          onFloor={(point) => {
+            setContext(null);
+            goTo(point);
+          }}
         />
       </SceneBoundary>
       <header className="topbar">
@@ -534,6 +774,10 @@ export default function App() {
             <button
               aria-label="나가기"
               onClick={() => {
+                releaseSeat();
+                clearAuto();
+                setContext(null);
+                setNearby(null);
                 cancelAction();
                 setRoom(null);
                 setBubbles([]);
@@ -547,8 +791,17 @@ export default function App() {
           </div>
           <div className="camera-tools">
             <button
+              aria-label="눈높이 시점 전환"
+              onClick={() => setEye((v) => !v)}
+            >
+              {eye ? "전체 보기" : "눈높이 시점"}
+            </button>
+            <button
               aria-label="카메라 시점 초기화"
-              onClick={() => setCameraReset((n) => n + 1)}
+              onClick={() => {
+                setEye(false);
+                setCameraReset((n) => n + 1);
+              }}
             >
               ⟲ 시점 초기화
             </button>
@@ -559,7 +812,69 @@ export default function App() {
               ✎ 방명록
             </button>
           </div>
+          {(context || nearby) && !panel && !seated && (
+            <InteractionPanel
+              target={(context || nearby)!}
+              state={garden.state}
+              ready={garden.ready}
+              busy={busy || pendingInteraction}
+              selectedBook={selectedBook}
+              onClose={() => {
+                setContext(null);
+                setNearby(null);
+              }}
+              onAct={() => {
+                const target = (context || nearby)!;
+                if (target.kind === "book") openBook(target.id);
+                else if (target.kind === "chair") goSit(target.id);
+                else waterPot(target.id);
+              }}
+            />
+          )}
           <div className="consumable-actions">
+            {selectedBook !== null && !seated && !busy && (
+              <button
+                aria-label="독서 의자로 이동"
+                onClick={() => {
+                  const i = [12, 13]
+                    .filter((i) => !garden.state.seats[i])
+                    .sort(
+                      (a, b) =>
+                        Math.hypot(
+                          player.current.x - SEATS[a].x,
+                          player.current.z - SEATS[a].z,
+                        ) -
+                        Math.hypot(
+                          player.current.x - SEATS[b].x,
+                          player.current.z - SEATS[b].z,
+                        ),
+                    )[0];
+                  if (i !== undefined) goSit(i);
+                  else setNotice("독서 자리에 손님이 쉬고 있어요.");
+                }}
+              >
+                📖 독서 의자로
+              </button>
+            )}
+            {seated && selectedBook !== null && !busy && (
+              <button
+                aria-label={player.current.reading ? "책 덮기" : "책 읽기"}
+                onClick={() => {
+                  player.current.reading = !player.current.reading;
+                  player.current.book = player.current.reading
+                    ? selectedBook
+                    : null;
+                  audio.play("page");
+                  setNotice(
+                    player.current.reading
+                      ? "페이지 사이에서 천천히 쉬어요."
+                      : "책을 잠시 덮었어요.",
+                  );
+                }}
+              >
+                {player.current.reading ? "책 덮기" : "책 읽기"}
+              </button>
+            )}
             {busy &&
               (player.current.action === "brew" ? (
                 <BrewStatus
@@ -570,7 +885,11 @@ export default function App() {
                 <span role="status" className="action-status">
                   {player.current.action === "drink"
                     ? "한 모금 마시는 중…"
-                    : "한입 먹는 중…"}
+                    : player.current.action === "eat"
+                      ? "한입 먹는 중…"
+                      : player.current.action === "water"
+                        ? "정원에 물을 주는 중…"
+                        : "편안히 앉는 중…"}
                 </span>
               ))}
             {player.current.drink && (
@@ -591,7 +910,7 @@ export default function App() {
                     ? `☕ 마시기 · ${player.current.drinkLevel ?? 4}/4`
                     : "빈 컵 정리"}
                 </button>
-                {seated && (
+                {seated && player.current.seat! < 12 && (
                   <button
                     disabled={busy}
                     onClick={() => {
@@ -614,7 +933,7 @@ export default function App() {
                 <button disabled={busy} onClick={eat}>
                   🍰 먹기 · {player.current.dessertBites ?? 3}/3
                 </button>
-                {seated && (
+                {seated && player.current.seat! < 12 && (
                   <button
                     disabled={busy}
                     onClick={() => {
@@ -639,7 +958,7 @@ export default function App() {
           <div className="bottom-hint">
             {seated
               ? "편안히 쉬고 있어요 ☁"
-              : "WASD / 방향키로 이동 · 의자를 눌러 앉기"}
+              : "바닥을 톡 눌러 산책 · WASD / 조이스틱도 가능"}
             <small>드래그 회전 · 휠 / 두 손가락 핀치 줌 · 방울은 톡!</small>
           </div>
           <Joystick controls={controls} />
@@ -707,6 +1026,7 @@ export default function App() {
                 dessert: "디저트 선택",
                 sound: "사운드 설정",
                 guestbook: "방명록",
+                book: "짧은 독서",
               }[panel]
             }
             className="modal"
@@ -731,6 +1051,7 @@ export default function App() {
                   dessert: "유리 너머, 달콤한 오늘",
                   sound: "내 취향의 작은 소리",
                   guestbook: "온기를 남기는 메모",
+                  book: BOOKS[selectedBook ?? 0].title,
                 }[panel]
               }
             </h2>
@@ -742,10 +1063,30 @@ export default function App() {
                   dessert: "마음에 드는 디저트를 접시에 담아드려요.",
                   sound: "배경과 효과음은 각자 편안한 크기로.",
                   guestbook: "모든 카페가 함께 보는 작은 방명록이에요.",
+                  book: "라떼룸이 직접 쓴, 오늘의 작은 문장.",
                 }[panel]
               }
             </p>
-            {panel === "sound" ? (
+            {panel === "book" ? (
+              <div className="reading-modal">
+                <div
+                  className="book-preview"
+                  style={
+                    {
+                      "--book-color": BOOKS[selectedBook ?? 0].color,
+                    } as React.CSSProperties
+                  }
+                >
+                  <i />
+                  <i />
+                </div>
+                <blockquote>{quote}</blockquote>
+                <button className="primary" onClick={() => setPanel(null)}>
+                  이 문장과 쉬어가기
+                </button>
+                <small>독서 의자에 앉으면 책을 펼칠 수 있어요.</small>
+              </div>
+            ) : panel === "sound" ? (
               <SoundSettings onToggle={toggleSound} />
             ) : panel === "guestbook" ? (
               <Guestbook nickname={name.trim() || player.current.name} />

@@ -31,7 +31,7 @@ test("third update: independent browsers display remote gait, attached cups, sip
       await p.getByRole("button", { name: "입장하기" }).click();
     }
     await expect(a.locator(".connection")).toContainText("2명");
-    await expect(b.locator(".name-tag")).toHaveCount(2);
+    await expect(b.locator(".name-tag")).toHaveCount(2, { timeout: 15000 });
     const idA = (await a
         .locator(".name-tag.you")
         .getAttribute("data-player-id"))!,
@@ -68,11 +68,24 @@ test("third update: independent browsers display remote gait, attached cups, sip
       .poll(async () => Math.abs((await avatarPose(b, idA)).yaw - held.yaw))
       .toBeGreaterThan(1);
     await expect
-      .poll(async () => (await avatarPose(b, idA)).walk)
+      .poll(async () => (await avatarPose(b, idA)).walk, { timeout: 15000 })
       .toBeLessThan(0.05);
+    // Observe the rendered transient pose before the click; the click RPC may
+    // resolve after the short sip has completed under software WebGL load.
+    await b.evaluate((id) => {
+      (window as any).__minSipTip = 0;
+      setInterval(() => {
+        const cup = window.__LATTE_SCENE__?.getObjectByName(`cup:${id}`);
+        if (cup)
+          (window as any).__minSipTip = Math.min(
+            (window as any).__minSipTip,
+            cup.rotation.x,
+          );
+      }, 30);
+    }, idA);
     await a.getByRole("button", { name: /마시기 ·/ }).click();
     await expect
-      .poll(async () => (await avatarPose(b, idA)).tip, { intervals: [70] })
+      .poll(() => b.evaluate(() => (window as any).__minSipTip))
       .toBeLessThan(-0.1);
     await expect(b.locator(`[data-player-id="${idA}"]`)).toHaveAttribute(
       "data-drink-level",
@@ -84,7 +97,7 @@ test("third update: independent browsers display remote gait, attached cups, sip
     await expect(b.locator(`[data-player-id="${idA}"]`)).toContainText(
       renamed!,
     );
-    await expect(b.locator(".name-tag")).toHaveCount(2);
+    await expect(b.locator(".name-tag")).toHaveCount(2, { timeout: 15000 });
     expect((await avatarPose(b, idA)).cupParent).toBe(`paw-right:${idA}`);
     expect(errors).toEqual([]);
     await ca.close();

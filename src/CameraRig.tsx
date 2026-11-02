@@ -2,31 +2,50 @@ import { useEffect, useRef, type ComponentRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { MOUSE, TOUCH, Vector3 } from "three";
-import { CAMERA_LIMITS } from "./model";
+import { cameraPosition } from "./world";
+import { CAMERA_LIMITS, type Player } from "./model";
 import type { Controls } from "./Scene";
 export default function CameraRig({
   entered,
   reset,
   controls,
+  room,
+  player,
+  eye,
 }: {
   entered: boolean;
+  room: number;
+  player: React.RefObject<Player>;
+  eye: boolean;
   reset: number;
   controls: React.RefObject<Controls>;
 }) {
   const orbit = useRef<ComponentRef<typeof OrbitControls>>(null),
     { camera, gl, size } = useThree();
   const mobile = size.width / size.height < 0.8;
+  const previousCamera = useRef(new Vector3(7.8, 6.8, 10.5));
   useEffect(() => {
     if (!entered) return;
-    camera.position.set(
-      0,
-      mobile ? 12.5 : 8.3,
-      (mobile ? 17 : 11) + 3.4 * 0.16,
-    );
-    camera.lookAt(0, 0.3, -0.6);
-    orbit.current?.target.set(0, 0.3, -0.6);
+    if (eye) {
+      const p = player.current;
+      camera.position.set(
+        p.x + Math.sin(p.angle) * 2.2,
+        p.seat === null ? 1.1 : 1.55,
+        p.z + Math.cos(p.angle) * 2.2,
+      );
+      orbit.current?.target.set(p.x, p.seat === null ? 0.95 : 1.45, p.z);
+    } else {
+      camera.position.set(
+        0,
+        mobile ? 12.5 : 8.3,
+        (mobile ? 17 : 11) + 3.4 * 0.16,
+      );
+      orbit.current?.target.set(0, 0.3, -0.6);
+    }
+    camera.lookAt(orbit.current?.target ?? new Vector3(0, 0.3, -0.6));
     orbit.current?.update();
-  }, [entered, reset, mobile, camera]);
+    previousCamera.current.copy(camera.position);
+  }, [entered, reset, mobile, camera, eye, player]);
   useEffect(() => {
     const points = new Map<number, { x: number; y: number }>();
     let dragged = false;
@@ -74,10 +93,36 @@ export default function CameraRig({
       clear();
     };
   }, [gl, controls]);
-  useFrame(() => {
+  useFrame((_, dt) => {
     if (!entered) {
       camera.position.lerp(new Vector3(7.8, 6.8, 10.5), 0.04);
       camera.lookAt(0, 0.3, -0.6);
+    }
+    if (entered && orbit.current) {
+      const target = orbit.current.target;
+      if (eye) {
+        const p = player.current,
+          a = 1 - Math.exp(-Math.min(dt, 0.05) * 8),
+          dx = (p.x - target.x) * a,
+          dz = (p.z - target.z) * a,
+          dy = ((p.seat === null ? 0.95 : 1.45) - target.y) * a;
+        target.x += dx;
+        target.y += dy;
+        target.z += dz;
+        camera.position.x += dx;
+        camera.position.y += dy;
+        camera.position.z += dz;
+      }
+      const safe = cameraPosition(
+        target,
+        camera.position,
+        room,
+        previousCamera.current,
+      );
+      camera.position.set(safe.x, safe.y, safe.z);
+      camera.lookAt(target);
+      previousCamera.current.copy(camera.position);
+      gl.domElement.dataset.cameraTarget = JSON.stringify(target.toArray());
     }
     gl.domElement.dataset.camera = JSON.stringify(
       camera.position.toArray().map((n) => +n.toFixed(3)),
@@ -85,7 +130,7 @@ export default function CameraRig({
   });
   return (
     <OrbitControls
-      key={`${entered}:${reset}:${mobile}`}
+      key={`${entered}:${reset}:${mobile}:${eye}`}
       ref={orbit}
       makeDefault
       enabled={entered}
@@ -94,7 +139,7 @@ export default function CameraRig({
       dampingFactor={0.12}
       rotateSpeed={0.55}
       zoomSpeed={0.7}
-      target={[0, 0.3, -0.6]}
+
       {...CAMERA_LIMITS}
       mouseButtons={{
         LEFT: MOUSE.ROTATE,

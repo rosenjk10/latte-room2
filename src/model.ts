@@ -1,3 +1,4 @@
+import { TABLE_POSITIONS, CHAIR_POSITIONS } from "./world";
 import { brewPlan } from "./brewing";
 export type Animal = "cat" | "rabbit" | "bear" | "dog" | "otter";
 export type Drink =
@@ -16,9 +17,13 @@ export type Player = {
   dessertBites?: number;
   drinkPlaced?: boolean;
   dessertPlaced?: boolean;
-  action?: "idle" | "brew" | "drink" | "eat";
+  action?: "idle" | "brew" | "drink" | "eat" | "water" | "sit";
   actionAt?: number;
   brewDrink?: Drink;
+  clientVersion?: number;
+  book?: number | null;
+  reading?: boolean;
+  wateringPot?: number | null;
 };
 export type Bubble = {
   id: string;
@@ -69,7 +74,14 @@ export const DESSERTS = [
   "🟣 마카롱",
   "🍰 치즈케이크",
 ];
-export const ACTION_DURATION = { brew: 5800, drink: 1100, eat: 1000, idle: 0 };
+export const ACTION_DURATION = {
+  brew: 5800,
+  drink: 1100,
+  eat: 1000,
+  water: 1800,
+  sit: 700,
+  idle: 0,
+};
 export function actionDuration(p: Player) {
   return p.action === "brew"
     ? brewPlan(p.brewDrink ?? "latte").duration
@@ -91,10 +103,10 @@ export function consume(p: Player, kind: "drink" | "eat"): Partial<Player> {
   };
 }
 export const CAMERA_LIMITS = {
-  minDistance: 10,
+  minDistance: 0.75,
   maxDistance: 26,
-  minPolarAngle: 0.28,
-  maxPolarAngle: 1.02,
+  minPolarAngle: 0.12,
+  maxPolarAngle: 1.58,
 };
 export function cameraIsSafe(distance: number, polar: number) {
   return (
@@ -104,18 +116,8 @@ export function cameraIsSafe(distance: number, polar: number) {
     polar <= CAMERA_LIMITS.maxPolarAngle
   );
 }
-export const TABLES = [
-  [-3, -2.8],
-  [0, -2.8],
-  [3, -2.8],
-  [-3, 1.2],
-  [0, 1.2],
-  [3, 1.2],
-];
-export const SEATS = TABLES.flatMap(([x, z]) => [
-  { x: x - 0.78, z, angle: Math.PI / 2 },
-  { x: x + 0.78, z, angle: -Math.PI / 2 },
-]);
+export const TABLES = TABLE_POSITIONS;
+export const SEATS = CHAIR_POSITIONS;
 export function clampPosition(x: number, z: number) {
   return {
     x: Math.max(-5.1, Math.min(5.1, x)),
@@ -178,7 +180,7 @@ export function validPlayer(v: unknown): v is Player {
     Math.abs(p.x) < 7 &&
     Math.abs(p.z) < 7 &&
     (p.seat === null ||
-      (Number.isInteger(p.seat) && p.seat >= 0 && p.seat < 12)) &&
+      (Number.isInteger(p.seat) && p.seat >= 0 && p.seat < SEATS.length)) &&
     (p.drink === null || DRINKS.some((d) => d.id === p.drink)) &&
     (p.drinkLevel === undefined ||
       (Number.isInteger(p.drinkLevel) &&
@@ -191,7 +193,17 @@ export function validPlayer(v: unknown): v is Player {
     (p.drinkPlaced === undefined || typeof p.drinkPlaced === "boolean") &&
     (p.dessertPlaced === undefined || typeof p.dessertPlaced === "boolean") &&
     (p.action === undefined ||
-      ["idle", "brew", "drink", "eat"].includes(p.action)) &&
+      ["idle", "brew", "drink", "eat", "water", "sit"].includes(p.action)) &&
+    (p.clientVersion === undefined || p.clientVersion === 4) &&
+    (p.book === undefined ||
+      p.book === null ||
+      (Number.isInteger(p.book) && p.book >= 0 && p.book < 6)) &&
+    (p.reading === undefined || typeof p.reading === "boolean") &&
+    (p.wateringPot === undefined ||
+      p.wateringPot === null ||
+      (Number.isInteger(p.wateringPot) &&
+        p.wateringPot >= 0 &&
+        p.wateringPot < 6)) &&
     (p.brewDrink === undefined || DRINKS.some((d) => d.id === p.brewDrink)) &&
     (p.actionAt === undefined ||
       (Number.isFinite(p.actionAt) && p.actionAt >= 0)) &&

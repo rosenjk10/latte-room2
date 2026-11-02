@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import * as THREE from "three";
+import { screenPoint as worldPoint } from "./world-inspection";
 const screenPoint = (
   x: number,
   y: number,
@@ -92,7 +93,10 @@ test("desktop: enter, move, sit, drinks, room change and bubble interactions", a
   expect(popped).toBe(true);
   const seat = screenPoint(-0.78, 0.55, 1.2);
   await page.mouse.click(seat.x, seat.y);
-  await expect(page.locator("main")).toHaveAttribute("data-seated", "true");
+  await page.getByRole("button", { name: "앉기", exact: true }).click();
+  await expect(page.locator("main")).toHaveAttribute("data-seated", "true", {
+    timeout: 15000,
+  });
   await page.getByRole("button", { name: "일어나기" }).click();
   await expect(page.locator("main")).toHaveAttribute("data-seated", "false");
   await page.waitForTimeout(11000);
@@ -181,6 +185,23 @@ test("mobile: fullscreen layout, joystick, long press, mute and room isolation",
     playerBefore,
   );
   await page.getByRole("button", { name: "카메라 시점 초기화" }).tap();
+  const floor = await worldPoint(page, { x: 0, y: 0.01, z: 2.9 });
+  await page.touchscreen.tap(floor.x, floor.y);
+  await expect(page.locator("canvas")).toHaveAttribute(
+    "data-destination",
+    /.+/,
+  );
+  await expect
+    .poll(
+      async () => {
+        const p = JSON.parse(
+          (await page.locator("canvas").getAttribute("data-player"))!,
+        );
+        return Math.hypot(p[0], p[1] - 2.9);
+      },
+      { timeout: 12000 },
+    )
+    .toBeLessThan(0.15);
   await page.getByRole("button", { name: "사운드 켜기" }).tap();
   await expect(page.getByRole("button", { name: "사운드 끄기" })).toBeVisible();
   await page.getByRole("button", { name: "사운드 끄기" }).tap();
@@ -220,6 +241,7 @@ test("free camera, consumable lifecycle, persisted sound settings and guestbook 
   await page.goto("/");
   await page.getByRole("button", { name: "입장하기" }).click();
   await expect(page.locator("canvas")).toHaveAttribute("data-camera", /.+/);
+  await page.waitForTimeout(500);
   const initialCamera = await page
       .locator("canvas")
       .getAttribute("data-camera"),
@@ -242,10 +264,10 @@ test("free camera, consumable lifecycle, persisted sound settings and guestbook 
   let position = JSON.parse(
     (await page.locator("canvas").getAttribute("data-camera"))!,
   );
-  expect(position[1]).toBeGreaterThan(5.4);
+  expect(position[1]).toBeGreaterThanOrEqual(0.32);
   expect(
     Math.hypot(position[0], position[1] - 0.3, position[2] + 0.6),
-  ).toBeGreaterThan(9.98);
+  ).toBeGreaterThan(0.7);
   for (let i = 0; i < 14; i++) await page.mouse.wheel(0, 500);
   await page.waitForTimeout(500);
   position = JSON.parse(
@@ -301,7 +323,10 @@ test("free camera, consumable lifecycle, persisted sound settings and guestbook 
   await page.getByRole("button", { name: "마카롱", exact: false }).click();
   const seat = screenPoint(-0.78, 0.55, 1.2);
   await page.mouse.click(seat.x, seat.y);
-  await expect(page.locator("main")).toHaveAttribute("data-seated", "true");
+  await page.getByRole("button", { name: "앉기", exact: true }).click();
+  await expect(page.locator("main")).toHaveAttribute("data-seated", "true", {
+    timeout: 15000,
+  });
   await page
     .getByRole("button", { name: "테이블에 올리기", exact: true })
     .click();

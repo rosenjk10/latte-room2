@@ -65,9 +65,9 @@ describe("room bubble lifecycle", () => {
   });
 });
 describe("cafe world", () => {
-  it("has twelve usable distinct seats", () => {
-    expect(SEATS).toHaveLength(12);
-    expect(new Set(SEATS.map((s) => `${s.x}/${s.z}`)).size).toBe(12);
+  it("has at least twelve usable distinct seats", () => {
+    expect(SEATS.length).toBeGreaterThanOrEqual(12);
+    expect(new Set(SEATS.map((s) => `${s.x}/${s.z}`)).size).toBe(SEATS.length);
   });
   it("keeps players inside the cafe", () =>
     expect(clampPosition(900, -900)).toEqual({ x: 5.1, z: -4.5 }));
@@ -84,7 +84,7 @@ describe("cafe world", () => {
       dessert: null,
     };
     expect(validPlayer(p)).toBe(true);
-    expect(validPlayer({ ...p, seat: 12 })).toBe(false);
+    expect(validPlayer({ ...p, seat: SEATS.length })).toBe(false);
     expect(validPlayer({ ...p, drink: "bogus" })).toBe(false);
     expect(validPlayer({ ...p, x: Infinity })).toBe(false);
   });

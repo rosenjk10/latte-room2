@@ -1,7 +1,7 @@
 import { createBrewAudio, type BrewAudioHandle } from "./brewAudio";
 import type { Drink } from "./model";
 export type AudioSettings = { music: number; effects: number; muted: boolean };
-export type Sound = "pop" | "cup" | "sip" | "eat" | "step";
+export type Sound = "pop" | "cup" | "sip" | "eat" | "step" | "page" | "water";
 export function readAudioSettings(): AudioSettings {
   try {
     const s = JSON.parse(localStorage.getItem("latte:audio") || "{}");
@@ -179,6 +179,14 @@ export class CafeAudio {
   }
   play(sound: Sound) {
     switch (sound) {
+      case "page":
+        this.noise(0.22, 0.07, 2500);
+        break;
+      case "water":
+        this.noise(1.3, 0.1, 1900);
+        for (let i = 0; i < 5; i++)
+          this.tone(900 + i * 90, 0.09, 0.04, "sine", "effects", i * 0.18);
+        break;
       case "pop":
         this.tone(650, 0.12, 0.3, "sine");
         this.tone(1100, 0.075, 0.12, "triangle");

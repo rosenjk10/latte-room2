@@ -1248,3 +1248,178 @@ button:disabled {
     gap: 6px;
   }
 }
+.interaction-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 165px;
+  transform: translateX(-50%);
+  padding: 17px 20px;
+  background: #fff9eeef;
+  backdrop-filter: blur(10px);
+  border: 1px solid white;
+  border-radius: 18px;
+  z-index: 5;
+  min-width: 235px;
+  max-width: 90%;
+  box-shadow: 0 8px 30px #64533e12;
+}
+.interaction-panel strong {
+  display: block;
+  font-size: 12px;
+  padding-right: 22px;
+  font-weight: 500;
+}
+.interaction-panel small {
+  display: block;
+  color: #9b8d78;
+  font-size: 10px;
+  line-height: 1.8;
+  margin: 9px 0;
+}
+.interaction-panel .primary {
+  width: 100%;
+  min-height: 44px;
+  font-size: 11px;
+  padding: 11px;
+}
+.interaction-close {
+  position: absolute;
+  right: 7px;
+  top: 4px;
+  background: transparent;
+  width: 34px;
+  height: 34px;
+  font-size: 23px;
+  color: #a99a86;
+}
+.book-spine {
+  font-size: 5px;
+  letter-spacing: 1px;
+  color: #7e725f;
+  width: 25px;
+  text-align: center;
+  pointer-events: none;
+}
+.reading-modal blockquote {
+  font-size: 18px;
+  line-height: 2;
+  color: #7d8e79;
+  text-align: center;
+  word-break: keep-all;
+  margin: 25px 0;
+}
+.reading-modal .primary {
+  width: 100%;
+}
+.reading-modal small {
+  display: block;
+  text-align: center;
+  font-size: 10px;
+  color: #a99b86;
+  margin-top: 13px;
+}
+.book-preview {
+  height: 115px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 500px;
+}
+.book-preview i {
+  display: block;
+  width: 85px;
+  height: 100px;
+  background: linear-gradient(90deg, #f8f1df, #fff9ef);
+  border: 5px solid var(--book-color);
+  border-radius: 2px;
+  box-shadow: 0 6px 12px #8f76531a;
+}
+.book-preview i:first-child {
+  transform-origin: right center;
+  animation: open-page 650ms ease-out both;
+}
+.book-preview i:last-child {
+  transform: rotateY(-15deg);
+  transform-origin: left center;
+}
+@keyframes open-page {
+  from {
+    transform: rotateY(150deg);
+  }
+  to {
+    transform: rotateY(15deg);
+  }
+}
+.camera-tools {
+  flex-wrap: wrap;
+  max-width: 320px;
+}
+.camera-tools button {
+  min-height: 44px;
+}
+@media (max-width: 700px) {
+  .camera-tools {
+    max-width: 236px;
+    gap: 5px;
+  }
+  .camera-tools button {
+    font-size: 9px;
+    padding: 8px;
+  }
+  .interaction-panel {
+    bottom: 245px;
+    padding: 13px 16px;
+    min-width: 218px;
+  }
+  .interaction-panel strong {
+    font-size: 11px;
+  }
+  .reading-modal blockquote {
+    font-size: 16px;
+  }
+  .consumable-actions {
+    bottom: 170px;
+  }
+  .in-room .toast {
+    bottom: 370px;
+  }
+}
+@media (max-height: 560px) {
+  .interaction-panel {
+    bottom: 110px;
+    left: 50%;
+    padding: 9px 13px;
+    min-width: 210px;
+  }
+  .interaction-panel small {
+    margin: 4px 0;
+  }
+  .camera-tools {
+    max-width: 220px;
+    top: 170px;
+  }
+  .consumable-actions {
+    bottom: 20px;
+  }
+  .in-room .toast {
+    bottom: 210px;
+  }
+}
+/* Keep Drei HTML labels inside the scene stacking context, below actual game controls. */
+.app > div:first-child {
+  isolation: isolate;
+  z-index: 0;
+}
+.room-info,
+.room-tools,
+.camera-tools,
+.play-actions,
+.consumable-actions,
+.bottom-hint,
+.joystick {
+  z-index: 4;
+}
+.wall-sign,
+.wall-sign * {
+  pointer-events: none;
+}

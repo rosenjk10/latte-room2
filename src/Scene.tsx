@@ -1,3 +1,7 @@
+import { HealingInterior } from "./HealingObjects";
+import { roomLayout, walkable, BOOKS, seatApproach, type Point } from "./world";
+import { findPath } from "./navigation";
+import type { SharedState } from "./roomState";
 import { memo, useRef, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Html } from "@react-three/drei";
@@ -76,7 +80,9 @@ const Cafe = memo(function Cafe({
   onGuestbook,
   brewAt,
   brewDrink,
+  accent,
 }: {
+  accent: string;
   onGuestbook: () => void;
   brewAt: number;
   brewDrink: import("./model").Drink;
@@ -84,7 +90,7 @@ const Cafe = memo(function Cafe({
   onMachine: (kind: "drink" | "dessert") => void;
 }) {
   return (
-    <group>
+    <group onClick={(e) => e.stopPropagation()}>
       <Box position={[0, -0.17, 0]} size={[12, 0.3, 11]} color="#e6d4be" />
       {Array.from({ length: 16 }, (_, i) => (
         <Box
@@ -94,7 +100,7 @@ const Cafe = memo(function Cafe({
           color="#cdb89f"
         />
       ))}
-      <Box position={[0, 2, -5.2]} size={[12, 4.4, 0.2]} color="#dcede4" />
+      <Box position={[0, 2, -5.2]} size={[12, 4.4, 0.2]} color={accent} />
       <Box position={[-5.8, 2, 0]} size={[0.2, 4.4, 10.5]} color="#fff4e6" />
       {[-3.5, 0, 3.5].map((x) => (
         <group key={x} position={[x, 2.35, -5.06]}>
@@ -118,7 +124,13 @@ const Cafe = memo(function Cafe({
         </group>
       ))}
       <group position={[-5.66, 2, 0]} rotation-y={Math.PI / 2}>
-        <Html transform center distanceFactor={6}>
+        <Html
+          transform
+          center
+          distanceFactor={6}
+          style={{ pointerEvents: "none" }}
+          zIndexRange={[0, 0]}
+        >
           <div className="wall-sign">
             LATTE
             <br />
@@ -153,7 +165,7 @@ const Cafe = memo(function Cafe({
           />
         </group>
       ))}
-      {SEATS.map((s, i) => (
+      {SEATS.slice(0, 12).map((s, i) => (
         <group
           key={i}
           position={[s.x, 0, s.z]}
@@ -184,32 +196,6 @@ const Cafe = memo(function Cafe({
               />
             )),
           )}
-        </group>
-      ))}
-      {[
-        [-4.8, -4.3],
-        [4.8, -4.3],
-        [4.9, 3.8],
-        [-5, 3.7],
-      ].map(([x, z], i) => (
-        <group key={i} position={[x, 0, z]}>
-          <mesh position={[0, 0.3, 0]}>
-            <cylinderGeometry args={[0.25, 0.19, 0.55, 12]} />
-            <meshStandardMaterial color="#d7a28c" />
-          </mesh>
-          <Box position={[0, 0.75, 0]} size={[0.06, 1, 0.06]} color="#789172" />
-          {[0, 1, 2, 3, 4].map((j) => (
-            <Ball
-              key={j}
-              position={[
-                Math.sin(j * 2) * 0.2,
-                0.8 + j * 0.14,
-                Math.cos(j * 2) * 0.15,
-              ]}
-              scale={[0.25, 0.18, 0.16]}
-              color={j % 2 ? "#789a7c" : "#9bb99a"}
-            />
-          ))}
         </group>
       ))}
       <EspressoStation
@@ -329,6 +315,10 @@ export type Controls = {
   keys: Set<string>;
   cameraBusy?: boolean;
   draggedUntil?: number;
+  path?: Point[];
+  destination?: Point | null;
+  arrive?: (() => void) | null;
+  cancelAuto?: () => void;
 };
 function World({
   player,
@@ -345,6 +335,14 @@ function World({
   onGuestbook,
   brewDrink,
   blocked,
+  room,
+  eye,
+  shared,
+  sharedReady,
+  onBook,
+  onPot,
+  onFloor,
+  onNearby,
 }: {
   player: React.RefObject<Player>;
   controls: React.RefObject<Controls>;
@@ -360,11 +358,43 @@ function World({
   onGuestbook: () => void;
   brewDrink: import("./model").Drink;
   blocked: boolean;
+  room: number;
+  eye: boolean;
+  shared: SharedState;
+  sharedReady: boolean;
+  onBook: (i: number) => void;
+  onPot: (i: number) => void;
+  onFloor: (p: Point) => void;
+  onNearby: (p: { kind: "book" | "pot" | "chair"; id: number } | null) => void;
 }) {
-  const handlers = useRef({ onSeat, onMachine, onGuestbook });
-  handlers.current = { onSeat, onMachine, onGuestbook };
+  const handlers = useRef({
+    onSeat,
+    onMachine,
+    onGuestbook,
+    onBook,
+    onPot,
+    onFloor,
+    onNearby,
+  });
+  handlers.current = {
+    onSeat,
+    onMachine,
+    onGuestbook,
+    onBook,
+    onPot,
+    onFloor,
+    onNearby,
+  };
   const interaction = useMemo(
     () => ({
+      book: (i: number) => {
+        if (performance.now() > (controls.current.draggedUntil ?? 0))
+          handlers.current.onBook(i);
+      },
+      pot: (i: number) => {
+        if (performance.now() > (controls.current.draggedUntil ?? 0))
+          handlers.current.onPot(i);
+      },
       seat: (i: number) => {
         if (performance.now() > (controls.current.draggedUntil ?? 0))
           handlers.current.onSeat(i);
@@ -381,7 +411,25 @@ function World({
     [controls],
   );
   const { gl } = useThree();
-  const activeBrewer = [player.current, ...others]
+  const marker = useRef<THREE.Mesh>(null),
+    nearbyTimer = useRef(0);
+  const visibleOthers = others.map((p) =>
+    p.clientVersion === 4 &&
+    sharedReady &&
+    p.seat !== null &&
+    shared.seats[p.seat]?.owner !== p.id
+      ? {
+          ...p,
+          ...seatApproach(p.seat, room),
+          seat: null,
+          reading: false,
+          book: null,
+          drinkPlaced: false,
+          dessertPlaced: false,
+        }
+      : p,
+  );
+  const activeBrewer = [player.current, ...visibleOthers]
     .filter((p) => p.action === "brew")
     .sort((a, b) => (b.actionAt ?? 0) - (a.actionAt ?? 0))[0];
   useFrame((_, dt) => {
@@ -392,7 +440,13 @@ function World({
       p.seat === null &&
       !c.cameraBusy &&
       !blocked &&
-      !((p.action === "drink" || p.action === "eat") && actionProgress(p) < 1)
+      !(
+        (p.action === "drink" ||
+          p.action === "eat" ||
+          p.action === "water" ||
+          p.action === "sit") &&
+        actionProgress(p) < 1
+      )
     ) {
       let x =
         c.x +
@@ -402,27 +456,83 @@ function World({
         c.z +
         (c.keys.has("s") || c.keys.has("arrowdown") ? 1 : 0) -
         (c.keys.has("w") || c.keys.has("arrowup") ? 1 : 0);
-      const length = Math.hypot(x, z);
-      if (length > 0) {
+      let length = Math.hypot(x, z);
+      if (length > 0.02 && c.destination) {
+        c.path = [];
+        c.destination = null;
+        c.arrive = null;
+        c.cancelAuto?.();
+      }
+      if (length < 0.02 && c.path?.length) {
+        const target = c.path[0],
+          dx = target.x - p.x,
+          dz = target.z - p.z,
+          d = Math.hypot(dx, dz);
+        if (d < 0.001) {
+          c.path.shift();
+          if (!c.path.length) {
+            const arrived = c.arrive;
+            c.arrive = null;
+            c.destination = null;
+            arrived?.();
+          }
+        } else {
+          x = dx / d;
+          z = dz / d;
+          length = 1;
+        }
+      }
+      if (length > 0.02) {
         x /= Math.max(1, length);
         z /= Math.max(1, length);
-        const next = clampPosition(
-          p.x + x * Math.min(dt, 0.05) * 2.4,
-          p.z + z * Math.min(dt, 0.05) * 2.4,
-        );
-        const blocked =
-          TABLES.some(
-            ([tx, tz]) => Math.hypot(next.x - tx, next.z - tz) < 0.87,
-          ) ||
-          (next.z > 3.1 && next.x > 1.7);
-        if (!blocked) {
+        const step = Math.min(
+            Math.min(dt, 0.05) * 2.4,
+            c.path?.length
+              ? Math.hypot(c.path[0].x - p.x, c.path[0].z - p.z)
+              : Infinity,
+          ),
+          next = { x: p.x + x * step, z: p.z + z * step };
+        if (walkable(next, room)) {
           p.x = next.x;
           p.z = next.z;
           audio.play("step");
+        } else if (!c.destination) {
+          if (walkable({ x: next.x, z: p.z }, room)) p.x = next.x;
+          if (walkable({ x: p.x, z: next.z }, room)) p.z = next.z;
         }
         p.angle = Math.atan2(x, z);
       }
     }
+    if (marker.current) {
+      marker.current.visible = !!c.destination;
+      if (c.destination) {
+        marker.current.position.set(c.destination.x, 0.015, c.destination.z);
+        marker.current.scale.setScalar(
+          1 + Math.sin(performance.now() * 0.004) * 0.08,
+        );
+      }
+    }
+    if (performance.now() - nearbyTimer.current > 400) {
+      nearbyTimer.current = performance.now();
+      const layout = roomLayout(room);
+      const candidates = [
+        { kind: "book" as const, id: room % BOOKS.length, ...layout.shelf },
+        ...layout.pots.map((v, id) => ({ kind: "pot" as const, id, ...v })),
+        ...SEATS.map((v, id) => ({ kind: "chair" as const, id, ...v })),
+      ].sort(
+        (a, b) =>
+          Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z),
+      );
+      const v = candidates[0];
+      handlers.current.onNearby(
+        v && Math.hypot(v.x - p.x, v.z - p.z) < 1.35
+          ? { kind: v.kind, id: v.id }
+          : null,
+      );
+    }
+    gl.domElement.dataset.destination = c.destination
+      ? JSON.stringify(c.destination)
+      : "";
     gl.domElement.dataset.player = JSON.stringify([
       +p.x.toFixed(3),
       +p.z.toFixed(3),
@@ -437,18 +547,61 @@ function World({
       <hemisphereLight args={["#fff4e6", "#dcede4", 0.8]} />
       <directionalLight position={[3, 8, 2]} intensity={2.5} color="#ffedcf" />
       <SceneInspection />
-      <CameraRig entered={entered} reset={cameraReset} controls={controls} />
+      <CameraRig
+        entered={entered}
+        reset={cameraReset}
+        controls={controls}
+        room={room}
+        player={player}
+        eye={eye}
+      />
+      <mesh
+        name="walk-floor"
+        rotation-x={-Math.PI / 2}
+        position={[0, 0.009, 0]}
+        onClick={(e) => {
+          if (
+            !entered ||
+            blocked ||
+            e.delta > 5 ||
+            performance.now() < (controls.current.draggedUntil ?? 0)
+          )
+            return;
+          e.stopPropagation();
+          handlers.current.onFloor({ x: e.point.x, z: e.point.z });
+        }}
+      >
+        <planeGeometry args={[12, 11]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      <mesh ref={marker} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[0.1, 0.17, 24]} />
+        <meshBasicMaterial
+          color="#9fc5ae"
+          transparent
+          opacity={0.7}
+          depthWrite={false}
+        />
+      </mesh>
+      <HealingInterior
+        room={room}
+        state={shared}
+        onBook={interaction.book}
+        onPot={interaction.pot}
+        onSeat={interaction.seat}
+      />
       <Cafe
+        accent={roomLayout(room).accent}
         onSeat={interaction.seat}
         onMachine={interaction.machine}
         onGuestbook={interaction.guestbook}
         brewAt={activeBrewer?.actionAt ?? 0}
         brewDrink={activeBrewer?.brewDrink ?? brewDrink}
       />
-      {[player.current, ...others]
+      {[player.current, ...visibleOthers]
         .filter((p) => p.seat !== null)
         .map((p) => {
-          const table = TABLES[Math.floor(p.seat! / 2)],
+          const table = TABLES[Math.floor(p.seat! / 2)] ?? [p.x, p.z],
             eating = p.action === "eat" && actionProgress(p) < 1,
             drinking = p.action === "drink" && actionProgress(p) < 1;
           return (
@@ -472,7 +625,7 @@ function World({
           );
         })}
       <Animal player={player.current} local />
-      {others.map((p) => (
+      {visibleOthers.map((p) => (
         <Animal key={p.id} player={p} />
       ))}
       {bubbles.map((b) => (

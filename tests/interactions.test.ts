@@ -7,6 +7,7 @@ import {
   validPlayer,
   type Player,
 } from "../src/model";
+import { cameraPosition } from "../src/world";
 import { validateMemo } from "../src/guestbook";
 const p: Player = {
   id: "a",
@@ -51,12 +52,15 @@ describe("consumable state and backwards-compatible multiplayer", () => {
   });
 });
 describe("camera safety envelope", () => {
-  it("keeps the nearest, lowest orbit above all walls and furniture", () => {
-    const minimumHeight =
-      0.3 + CAMERA_LIMITS.minDistance * Math.cos(CAMERA_LIMITS.maxPolarAngle);
-    expect(minimumHeight).toBeGreaterThan(4.5);
-    expect(cameraIsSafe(10, 1.02)).toBe(true);
-    expect(cameraIsSafe(2, 1.5)).toBe(false);
+  it("supports low views while camera collision stays above the floor", () => {
+    const safe = cameraPosition(
+      { x: 0, y: 0.95, z: 3.4 },
+      { x: 0, y: -3, z: 4.4 },
+      1,
+    );
+    expect(safe.y).toBeGreaterThanOrEqual(0.32);
+    expect(CAMERA_LIMITS.minDistance).toBeLessThan(1);
+    expect(cameraIsSafe(0.8, 1.5)).toBe(true);
   });
 });
 describe("guestbook client validation", () => {
