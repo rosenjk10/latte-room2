@@ -1,0 +1,870 @@
+:root {
+  font-family: Inter, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  color: #544b43;
+  background: #f6f1e9;
+  font-synthesis: none;
+  font-weight: 400;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+input {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+  color: inherit;
+  border: 0;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #91b49f;
+  outline-offset: 4px;
+}
+button {
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+button:hover {
+  filter: brightness(0.98);
+}
+button:active {
+  transform: scale(0.97);
+}
+.app {
+  width: 100%;
+  height: 100dvh;
+  min-height: 520px;
+  overflow: hidden;
+  position: relative;
+}
+.app > div:first-child {
+  position: absolute !important;
+  inset: 0;
+}
+.topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 28px 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 4;
+  pointer-events: none;
+}
+.topbar > * {
+  pointer-events: auto;
+}
+.brand {
+  font-size: 23px;
+  letter-spacing: 3px;
+  color: #605b4d;
+  text-decoration: none;
+  font-weight: 700;
+  line-height: 1;
+}
+.brand span {
+  font-weight: 400;
+}
+.brand small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 2.3px;
+  font-weight: 400;
+  margin-top: 8px;
+}
+.top-actions {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+.open-badge {
+  font-size: 10px;
+  letter-spacing: 1.6px;
+}
+.open-badge i,
+.connection i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #9cb99d;
+  border-radius: 50%;
+  margin-right: 7px;
+}
+.icon-button {
+  background: #fff9eece;
+  border: 1px solid #dfd8ca;
+  border-radius: 30px;
+  padding: 11px 15px;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.welcome-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    #f8f3eaf5 0%,
+    #f8f3eaed 25%,
+    #f8f3ea90 43%,
+    transparent 65%
+  );
+  pointer-events: none;
+}
+.welcome-card {
+  position: absolute;
+  top: 50%;
+  left: 7%;
+  transform: translateY(-45%);
+  width: 350px;
+  z-index: 3;
+}
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  color: #919581;
+  font-weight: 600;
+  margin: 0 0 18px;
+}
+.welcome h1 {
+  font-size: 37px;
+  line-height: 1.55;
+  letter-spacing: -1.8px;
+  font-weight: 500;
+  margin: 0 0 16px;
+}
+.welcome h1 em {
+  font-style: normal;
+  color: #7a927f;
+}
+.intro {
+  font-size: 13px;
+  line-height: 2.1;
+  color: #948b80;
+  margin-bottom: 24px;
+}
+.animal-picker {
+  display: flex;
+  gap: 9px;
+}
+.animal-picker button {
+  width: 64px;
+  background: #ffffff70;
+  border: 1px solid transparent;
+  border-radius: 15px;
+  padding: 9px 0;
+}
+.animal-picker button.chosen {
+  border-color: #a9bda7;
+  background: #e3ecdf;
+}
+.animal-picker span {
+  font-size: 25px;
+  display: block;
+}
+.animal-picker small {
+  display: block;
+  font-size: 10px;
+  margin-top: 4px;
+}
+.nickname {
+  display: block;
+  margin: 19px 0 16px;
+}
+.nickname > span {
+  display: block;
+  font-size: 10px;
+  color: #928a7e;
+  margin-bottom: 8px;
+}
+.nickname input {
+  width: 283px;
+  border: 1px solid #ded9cd;
+  background: #fffaf0a8;
+  border-radius: 9px;
+  padding: 11px 12px;
+  font-size: 12px;
+  color: #62594e;
+  outline-color: #9bb49f;
+}
+.primary {
+  background: #829b85;
+  color: white;
+  border-radius: 10px;
+  padding: 15px 22px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  min-height: 48px;
+}
+.enter {
+  width: 283px;
+  text-align: left;
+}
+.enter span {
+  float: right;
+  font-size: 18px;
+}
+.quiet-note {
+  font-size: 10px;
+  color: #a49a8e;
+  margin: 12px 0 0 24px;
+}
+.welcome-footer {
+  position: absolute;
+  bottom: 25px;
+  left: 42px;
+  right: 42px;
+  display: flex;
+  justify-content: space-between;
+  color: #a59a8a;
+  font-size: 10px;
+  letter-spacing: 1px;
+  pointer-events: none;
+}
+.welcome-footer span:last-child {
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+.wall-sign {
+  text-align: center;
+  font-size: 30px;
+  letter-spacing: 7px;
+  color: #7f927d;
+  width: 200px;
+}
+.wall-sign span {
+  font-size: 25px;
+}
+.wall-sign small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 1px;
+  margin-top: 12px;
+}
+.machine-label {
+  text-align: center;
+  font-size: 18px;
+  width: 70px;
+  line-height: 1.5;
+  letter-spacing: 1px;
+  pointer-events: none;
+}
+.name-tag {
+  white-space: nowrap;
+  background: #fffcf0ce;
+  border: 1px solid #e9dfcf80;
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 10px;
+  color: #7e7062;
+  pointer-events: none;
+}
+.name-tag.you {
+  background: #e3ecdfdf;
+  color: #5d7a65;
+}
+.room-info {
+  position: absolute;
+  left: 32px;
+  top: 111px;
+  background: #fffaf1d9;
+  backdrop-filter: blur(12px);
+  border: 1px solid #ffffff90;
+  border-radius: 18px;
+  padding: 20px 24px;
+  min-width: 252px;
+}
+.room-info .eyebrow {
+  margin-bottom: 10px;
+}
+.room-title {
+  font-size: 19px;
+  letter-spacing: -0.6px;
+  background: transparent;
+  padding: 0;
+}
+.room-title span {
+  padding-left: 15px;
+  color: #9a9f8e;
+}
+.connection {
+  font-size: 10px;
+  color: #9a9185;
+  margin-top: 12px;
+}
+.connection i {
+  background: #c7b58e;
+}
+.connection i.connected {
+  background: #7da88b;
+}
+.room-tools {
+  position: absolute;
+  right: 27px;
+  top: 116px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.room-tools button {
+  background: #fffbf0db;
+  border: 1px solid #ffffffaa;
+  border-radius: 13px;
+  padding: 13px 17px;
+  font-size: 16px;
+  text-align: left;
+  backdrop-filter: blur(10px);
+}
+.room-tools span {
+  font-size: 11px;
+  margin-left: 7px;
+}
+.bottom-hint {
+  position: absolute;
+  bottom: 29px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+  color: #8b8070;
+  background: #fffaf0c9;
+  padding: 12px 24px;
+  border-radius: 30px;
+  pointer-events: none;
+}
+.bottom-hint small {
+  display: block;
+  font-size: 9px;
+  margin-top: 5px;
+  color: #a79987;
+}
+.play-actions {
+  position: absolute;
+  right: 30px;
+  bottom: max(36px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.bubble-button {
+  border-radius: 24px;
+  background: linear-gradient(140deg, #f8f4ffd9, #e1eee7ed);
+  border: 1px solid #fff;
+  box-shadow: 0 6px 24px #8c82aa20;
+  min-width: 122px;
+  padding: 13px 18px;
+  font-size: 12px;
+  user-select: none;
+  touch-action: none;
+  backdrop-filter: blur(10px);
+}
+.bubble-button > span {
+  display: block;
+  font-size: 32px;
+  margin-bottom: 5px;
+}
+.bubble-button small {
+  display: block;
+  font-size: 8px;
+  color: #a095a2;
+  margin-top: 5px;
+}
+.bubble-button.cooling {
+  opacity: 0.65;
+}
+.stand-button {
+  border-radius: 30px;
+  background: #fff7e6e8;
+  padding: 13px 22px;
+  font-size: 12px;
+}
+.joystick {
+  position: absolute;
+  left: 35px;
+  bottom: max(40px, env(safe-area-inset-bottom));
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: #fff8ed80;
+  border: 1px solid #fff7e6aa;
+  box-shadow: inset 0 0 20px #897b6910;
+  touch-action: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.joystick-arrows {
+  font-size: 70px;
+  color: #b9b29e50;
+}
+.joystick-knob {
+  position: absolute;
+  width: 49px;
+  height: 49px;
+  border-radius: 50%;
+  background: #fffaf1e8;
+  box-shadow: 0 3px 12px #8c806326;
+  pointer-events: none;
+  border: 1px solid #fff;
+}
+.joystick small {
+  position: absolute;
+  bottom: -18px;
+  letter-spacing: 2px;
+  font-size: 8px;
+  color: #9c927d;
+}
+.toast {
+  position: absolute;
+  bottom: 190px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fffdf2ef;
+  box-shadow: 0 4px 24px #786e4d12;
+  border: 1px solid #fff;
+  border-radius: 30px;
+  padding: 14px 22px;
+  font-size: 12px;
+  z-index: 12;
+  text-align: center;
+  max-width: 90%;
+  width: max-content;
+  pointer-events: none;
+}
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: #504c4240;
+  backdrop-filter: blur(7px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  padding: 20px;
+}
+.modal {
+  position: relative;
+  background: #fffaf1;
+  border: 1px solid #fff;
+  border-radius: 25px;
+  padding: 38px;
+  max-width: 540px;
+  width: 100%;
+  max-height: 85dvh;
+  overflow: auto;
+  box-shadow: 0 20px 80px #514c3b20;
+}
+.close {
+  position: absolute;
+  right: 18px;
+  top: 14px;
+  background: transparent;
+  font-size: 27px;
+  color: #9b927f;
+  width: 36px;
+  height: 36px;
+}
+.modal h2 {
+  font-size: 23px;
+  font-weight: 500;
+  letter-spacing: -1px;
+  margin: 0;
+}
+.modal-description {
+  font-size: 11px;
+  color: #9e9384;
+  margin: 13px 0 25px;
+  line-height: 1.7;
+}
+.room-grid,
+.drink-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.room-grid button {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 15px;
+  background: #f1ede4;
+  border-radius: 12px;
+  text-align: left;
+  border: 1px solid transparent;
+}
+.room-grid button:nth-child(4n + 1) {
+  background: #e7eee3;
+}
+.room-grid button:nth-child(4n + 2) {
+  background: #f7e6e8;
+}
+.room-grid button:nth-child(4n + 3) {
+  background: #ece7f4;
+}
+.room-grid button.active-room {
+  border-color: #829b85;
+}
+.room-grid small {
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: #9b9488;
+}
+.room-grid strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.room-grid span {
+  font-size: 9px;
+  color: #9c9285;
+}
+.drink-grid button {
+  background: #fffdf8;
+  border: 1px solid #e9e0d2;
+  border-radius: 15px;
+  padding: 17px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+.drink-grid button > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 35px;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+}
+.drink-grid strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.drink-grid small {
+  font-size: 8px;
+  color: #aa9f8c;
+  letter-spacing: 0.5px;
+}
+.dessert-art {
+  text-align: center;
+  font-size: 95px;
+  margin: 25px;
+}
+.modal > .primary {
+  width: 100%;
+}
+.webgl-error {
+  display: grid;
+  place-content: center;
+  background: #dcede4;
+  text-align: center;
+  font-size: 14px;
+  line-height: 2;
+  padding: 20px;
+}
+@media (min-width: 1500px) {
+  .welcome-card {
+    left: 10%;
+  }
+  .welcome h1 {
+    font-size: 46px;
+  }
+}
+@media (max-width: 700px) {
+  .app {
+    min-height: 0;
+  }
+  .topbar {
+    padding: 22px 20px;
+  }
+  .brand {
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+  .brand small {
+    font-size: 8px;
+  }
+  .open-badge {
+    display: none;
+  }
+  .icon-button {
+    font-size: 9px;
+    padding: 10px 12px;
+  }
+  .welcome-shade {
+    background: linear-gradient(
+      0deg,
+      #f8f3eafa 0%,
+      #f8f3eaf2 43%,
+      #f8f3ea28 78%
+    );
+  }
+  .welcome-card {
+    top: auto;
+    bottom: 30px;
+    left: 24px;
+    right: 24px;
+    width: auto;
+    transform: none;
+    max-width: 360px;
+  }
+  .welcome h1 {
+    font-size: 28px;
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .welcome .eyebrow {
+    font-size: 8px;
+    margin-bottom: 13px;
+  }
+  .intro {
+    font-size: 11px;
+    line-height: 1.9;
+    margin-bottom: 15px;
+  }
+  .animal-picker {
+    gap: 9px;
+  }
+  .animal-picker button {
+    width: 58px;
+    padding: 7px 0;
+  }
+  .animal-picker span {
+    font-size: 23px;
+  }
+  .animal-picker small {
+    font-size: 9px;
+  }
+  .nickname {
+    margin: 12px 0;
+  }
+  .nickname input,
+  .enter {
+    width: 100%;
+    max-width: 310px;
+  }
+  .quiet-note {
+    margin-top: 9px;
+  }
+  .welcome-footer {
+    display: none;
+  }
+  .room-info {
+    top: 88px;
+    left: 16px;
+    padding: 14px 17px;
+    min-width: 210px;
+    border-radius: 15px;
+  }
+  .room-info .eyebrow {
+    font-size: 8px;
+    margin-bottom: 8px;
+  }
+  .room-title {
+    font-size: 16px;
+  }
+  .connection {
+    font-size: 8px;
+    margin-top: 9px;
+  }
+  .room-tools {
+    right: 13px;
+    top: 91px;
+    gap: 7px;
+  }
+  .room-tools button {
+    padding: 11px;
+    border-radius: 12px;
+    font-size: 18px;
+  }
+  .room-tools span {
+    display: none;
+  }
+  .joystick {
+    left: 23px;
+    bottom: max(43px, env(safe-area-inset-bottom));
+    width: 104px;
+    height: 104px;
+  }
+  .play-actions {
+    right: 20px;
+    bottom: max(30px, env(safe-area-inset-bottom));
+  }
+  .bubble-button {
+    min-width: 106px;
+    padding: 12px;
+    font-size: 11px;
+    border-radius: 22px;
+  }
+  .bubble-button > span {
+    font-size: 29px;
+  }
+  .bubble-button small {
+    font-size: 7px;
+  }
+  .bottom-hint {
+    bottom: 14px;
+    padding: 7px 13px;
+    font-size: 8px;
+    max-width: 95%;
+    background: #fffaf0b0;
+  }
+  .bottom-hint small {
+    font-size: 7px;
+  }
+  .toast {
+    bottom: 180px;
+    font-size: 11px;
+    padding: 12px 17px;
+  }
+  .modal {
+    padding: 30px 22px;
+    border-radius: 21px;
+  }
+  .modal h2 {
+    font-size: 21px;
+  }
+  .modal-description {
+    font-size: 10px;
+  }
+  .modal .eyebrow {
+    font-size: 7px;
+    letter-spacing: 1.8px;
+  }
+  .room-grid {
+    gap: 8px;
+  }
+  .room-grid button {
+    padding: 12px;
+  }
+  .room-grid strong {
+    font-size: 11px;
+  }
+}
+@media (max-height: 690px) and (max-width: 700px) {
+  .welcome-card {
+    bottom: 17px;
+  }
+  .welcome h1 {
+    font-size: 24px;
+  }
+  .intro {
+    margin-bottom: 9px;
+  }
+  .welcome .eyebrow {
+    margin-bottom: 8px;
+  }
+  .animal-picker button {
+    padding: 4px 0;
+  }
+  .nickname > span {
+    font-size: 9px;
+  }
+  .nickname {
+    margin: 9px 0;
+  }
+  .quiet-note {
+    font-size: 8px;
+  }
+  .primary {
+    padding: 12px 19px;
+  }
+  .welcome-card .intro {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+}
+@media (max-height: 560px) {
+  .app {
+    min-height: 0;
+  }
+  .topbar {
+    padding: 16px 23px;
+  }
+  .welcome-card {
+    top: 84px;
+    bottom: 18px;
+    transform: none;
+    overflow-y: auto;
+    max-height: calc(100dvh - 102px);
+    padding-right: 12px;
+  }
+  .welcome h1 {
+    font-size: 25px;
+  }
+  .welcome-footer {
+    display: none;
+  }
+  .room-info {
+    top: 78px;
+    left: 18px;
+    padding: 12px 16px;
+    min-width: 210px;
+  }
+  .room-info .eyebrow {
+    font-size: 7px;
+    margin-bottom: 6px;
+  }
+  .room-title {
+    font-size: 15px;
+  }
+  .room-tools {
+    top: 85px;
+    right: 18px;
+    flex-direction: row;
+  }
+  .room-tools button {
+    padding: 12px;
+  }
+  .room-tools span {
+    display: none;
+  }
+  .bottom-hint {
+    display: none;
+  }
+  .joystick {
+    width: 88px;
+    height: 88px;
+    bottom: 30px;
+    left: 25px;
+  }
+  .play-actions {
+    right: 20px;
+    bottom: 20px;
+  }
+  .bubble-button {
+    min-width: 95px;
+    padding: 10px;
+  }
+  .bubble-button > span {
+    font-size: 24px;
+  }
+  .bubble-button small {
+    font-size: 7px;
+  }
+  .toast {
+    bottom: 140px;
+  }
+  .modal {
+    max-height: 90dvh;
+  }
+}
