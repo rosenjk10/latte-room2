@@ -139,7 +139,9 @@ test("guestbook save, safe text, realtime refresh across rooms, server error, an
   await a.getByRole("button", { name: "음료 선택", exact: true }).click();
   await a.getByRole("button", { name: "라떼", exact: true }).click();
   await a.getByRole("button", { name: "라떼 추출하기", exact: true }).click();
-  await expect(a.getByRole("button", { name: /마시기 · 4/ })).toBeVisible();
+  await expect(a.getByRole("button", { name: /마시기 · 4/ })).toBeVisible({
+    timeout: 10000,
+  });
   await expect(
     b.locator(".name-tag").filter({ hasText: "모카" }),
   ).toHaveAttribute("data-drink-level", "4");

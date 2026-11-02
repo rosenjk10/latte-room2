@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { Html, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { DRINKS, type Drink } from "./model";
+import { brewState } from "./brewing";
 const sphere = new THREE.SphereGeometry(1, 12, 8);
 function Oval({
   p,
@@ -41,6 +42,18 @@ function Block({
     </mesh>
   );
 }
+export function cupDimensions(drink: Drink) {
+  return {
+    height:
+      drink === "espresso"
+        ? 0.12
+        : ["americano", "vanilla", "choco"].includes(drink)
+          ? 0.25
+          : 0.2,
+    radius:
+      drink === "espresso" ? 0.07 : drink === "cappuccino" ? 0.115 : 0.095,
+  };
+}
 export function Cup({
   drink,
   level = 4,
@@ -51,10 +64,8 @@ export function Cup({
   getLevel?: () => number;
 }) {
   const d = DRINKS.find((d) => d.id === drink)!,
-    espresso = drink === "espresso",
-    tall = drink === "americano" || drink === "vanilla" || drink === "choco";
-  const h = espresso ? 0.12 : tall ? 0.25 : 0.2,
-    r = espresso ? 0.07 : drink === "cappuccino" ? 0.115 : 0.095;
+    espresso = drink === "espresso";
+  const { height: h, radius: r } = cupDimensions(drink);
   const liquid = useRef<THREE.Mesh>(null),
     foam = useRef<THREE.Group>(null);
   useFrame(() => {
@@ -90,6 +101,7 @@ export function Cup({
       {level > 0 && (
         <mesh
           ref={liquid}
+          name="coffee-liquid"
           position={[0, -h * 0.38 + (Math.min(4, level) / 4) * h * 0.74, 0]}
         >
           <cylinderGeometry args={[r * 0.91, r * 0.91, 0.008, 16]} />
@@ -233,17 +245,45 @@ export function EspressoStation({
   onClick: () => void;
 }) {
   const stream = useRef<THREE.Mesh>(null),
-    cup = useRef<THREE.Group>(null);
+    cup = useRef<THREE.Group>(null),
+    beans = useRef<THREE.Group>(null),
+    needle = useRef<THREE.Mesh>(null),
+    steam = useRef<THREE.Group>(null),
+    base = useRef<THREE.Group>(null);
   useFrame(() => {
-    const t = (Date.now() - brewAt) / 2400;
-    if (stream.current) {
-      stream.current.visible = t > 0.15 && t < 0.95;
-      stream.current.scale.x = 0.8 + Math.sin(t * 60) * 0.2;
+    const elapsed = Date.now() - brewAt,
+      state = brewState(drink, elapsed);
+    if (base.current) {
+      base.current.userData.stage = state.active ? state.stage : "idle";
+      base.current.userData.fill = state.active ? state.fill : 0;
     }
-    if (cup.current) cup.current.visible = t >= 0 && t < 1;
+    if (stream.current) {
+      stream.current.visible = state.active && state.stage === "extract";
+      stream.current.scale.x = 0.8 + Math.sin(elapsed * 0.04) * 0.2;
+    }
+    if (cup.current) cup.current.visible = state.active;
+    if (beans.current) {
+      beans.current.rotation.y =
+        state.active && state.stage === "grind" ? elapsed * 0.012 : 0;
+    }
+    if (needle.current)
+      needle.current.rotation.z =
+        state.active && ["pump", "extract"].includes(state.stage)
+          ? 0.4 + Math.sin(elapsed * 0.025) * 0.12
+          : -0.65;
+    if (steam.current) {
+      steam.current.visible = state.active && state.stage === "steam";
+      steam.current.children.forEach((p, i) => {
+        const t = (elapsed * 0.0015 + i * 0.3) % 1;
+        p.position.set(Math.sin(t * 6 + i) * 0.045, t * 0.4, 0);
+        p.scale.setScalar(0.04 + t * 0.035);
+      });
+    }
   });
   return (
     <group
+      ref={base}
+      name="espresso-machine"
       position={[2.5, 0, 3.7]}
       onClick={(e) => {
         if (e.delta > 5) return;
@@ -296,18 +336,21 @@ export function EspressoStation({
             depthWrite={false}
           />
         </mesh>
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <Oval
-            key={i}
-            p={[
-              -0.3 + Math.sin(i * 2) * 0.11,
-              0.93 + (i % 2) * 0.035,
-              -0.09 + Math.cos(i * 2) * 0.09,
-            ]}
-            s={[0.055, 0.035, 0.04]}
-            color="#624735"
-          />
-        ))}
+        <group ref={beans} position={[-0.3, 0, -0.09]}>
+          {" "}
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <Oval
+              key={i}
+              p={[
+                Math.sin(i * 2) * 0.11,
+                0.93 + (i % 2) * 0.035,
+                Math.cos(i * 2) * 0.09,
+              ]}
+              s={[0.055, 0.035, 0.04]}
+              color="#624735"
+            />
+          ))}
+        </group>
         <mesh position={[-0.3, 1.22, -0.09]}>
           <cylinderGeometry args={[0.24, 0.24, 0.045, 16]} />
           <meshStandardMaterial
@@ -320,7 +363,7 @@ export function EspressoStation({
           <cylinderGeometry args={[0.115, 0.115, 0.025, 20]} />
           <meshStandardMaterial color="#faf8ee" />
         </mesh>
-        <mesh position={[0.11, 0.72, 0.36]} rotation-z={-0.65}>
+        <mesh ref={needle} position={[0.11, 0.72, 0.36]} rotation-z={-0.65}>
           <boxGeometry args={[0.012, 0.14, 0.012]} />
           <meshStandardMaterial color="#777f78" />
         </mesh>
@@ -352,12 +395,27 @@ export function EspressoStation({
             roughness={0.25}
           />
         </mesh>
-        <mesh position={[-0.12, 0.4, 0.4]} ref={stream}>
+        <group ref={steam} position={[0.47, 0.3, 0.4]}>
+          {[0, 1, 2].map((i) => (
+            <mesh key={i} geometry={sphere}>
+              <meshBasicMaterial
+                color="#fff4df"
+                transparent
+                opacity={0.24}
+                depthWrite={false}
+              />
+            </mesh>
+          ))}
+        </group>
+        <mesh name="coffee-stream" position={[-0.12, 0.4, 0.4]} ref={stream}>
           <cylinderGeometry args={[0.009, 0.011, 0.27, 6]} />
           <meshBasicMaterial color="#8f6242" />
         </mesh>
-        <group ref={cup} position={[-0.12, 0.32, 0.4]}>
-          <Cup drink={drink} />
+        <group name="brew-cup" ref={cup} position={[-0.12, 0.32, 0.4]}>
+          <Cup
+            drink={drink}
+            getLevel={() => brewState(drink, Date.now() - brewAt).fill * 4}
+          />
         </group>
         <Html
           position={[0, 0.86, 0.35]}

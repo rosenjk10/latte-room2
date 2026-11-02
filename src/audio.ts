@@ -1,5 +1,7 @@
+import { createBrewAudio, type BrewAudioHandle } from "./brewAudio";
+import type { Drink } from "./model";
 export type AudioSettings = { music: number; effects: number; muted: boolean };
-export type Sound = "pop" | "brew" | "cup" | "sip" | "eat" | "step";
+export type Sound = "pop" | "cup" | "sip" | "eat" | "step";
 export function readAudioSettings(): AudioSettings {
   try {
     const s = JSON.parse(localStorage.getItem("latte:audio") || "{}");
@@ -16,7 +18,7 @@ const level = (n: unknown, fallback: number) =>
   typeof n === "number" && Number.isFinite(n)
     ? Math.max(0, Math.min(1, n))
     : fallback;
-class CafeAudio {
+export class CafeAudio {
   ctx: AudioContext | null = null;
   master: GainNode | null = null;
   music: GainNode | null = null;
@@ -24,6 +26,21 @@ class CafeAudio {
   settings = readAudioSettings();
   unlocked = false;
   private stepAt = 0;
+  private brew: BrewAudioHandle | null = null;
+  startBrew(drink: Drink, startedAt: number) {
+    this.stopBrew();
+    if (!this.enabled || !this.ctx || !this.effects) return;
+    this.brew = createBrewAudio(
+      this.ctx,
+      this.effects,
+      drink,
+      this.ctx.currentTime + Math.max(0, (startedAt - Date.now()) / 1000),
+    );
+  }
+  stopBrew() {
+    this.brew?.cancel();
+    this.brew = null;
+  }
   get enabled() {
     return this.unlocked && !this.settings.muted;
   }
@@ -92,6 +109,7 @@ class CafeAudio {
     } catch {
       /* Storage can be disabled. */
     }
+    if (this.settings.muted) this.stopBrew();
     this.apply();
   }
   private apply() {
@@ -164,12 +182,6 @@ class CafeAudio {
       case "pop":
         this.tone(650, 0.12, 0.3, "sine");
         this.tone(1100, 0.075, 0.12, "triangle");
-        break;
-      case "brew":
-        this.noise(2.3, 0.12, 650);
-        this.tone(90, 2.2, 0.05, "triangle");
-        for (let i = 0; i < 7; i++)
-          this.tone(900 + i * 35, 0.07, 0.04, "sine", "effects", 0.6 + i * 0.2);
         break;
       case "cup":
         this.tone(1400, 0.18, 0.12, "sine");

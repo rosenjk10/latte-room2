@@ -46,7 +46,9 @@ test("desktop: enter, move, sit, drinks, room change and bubble interactions", a
   await page.getByRole("button", { name: "음료 선택", exact: true }).click();
   await page.getByRole("button", { name: "카푸치노", exact: false }).click();
   await page.getByRole("button", { name: "카푸치노 추출하기" }).click();
-  await expect(page.getByRole("button", { name: /마시기/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /마시기/ })).toBeVisible({
+    timeout: 10000,
+  });
   await page.getByRole("button", { name: "디저트 선택", exact: true }).click();
   await page.getByRole("button", { name: "랜덤 디저트 받기" }).click();
   await expect(page.getByRole("status")).toContainText("준비됐어요");
@@ -280,7 +282,9 @@ test("free camera, consumable lifecycle, persisted sound settings and guestbook 
     .click();
   await page.getByRole("button", { name: "에스프레소 추출하기" }).click();
   await expect(page.locator("main")).toHaveAttribute("data-action", "brew");
-  await expect(page.getByRole("button", { name: /마시기 · 4/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /마시기 · 4/ })).toBeVisible({
+    timeout: 10000,
+  });
   for (let level = 3; level >= 0; level--) {
     await page.getByRole("button", { name: /마시기 ·/ }).click();
     await expect(page.locator("main")).toHaveAttribute("data-action", "drink");

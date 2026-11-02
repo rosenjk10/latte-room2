@@ -11,9 +11,9 @@ import {
   CorkBoard,
 } from "./CafeObjects";
 import { audio } from "./audio";
+import Animal from "./Avatar";
+import SceneInspection from "./SceneInspection";
 import {
-  ANIMALS,
-  DRINKS,
   TABLES,
   SEATS,
   bubblePosition,
@@ -235,170 +235,6 @@ const Cafe = memo(function Cafe({
     </group>
   );
 });
-function Animal({
-  player,
-  local = false,
-}: {
-  player: Player;
-  local?: boolean;
-}) {
-  const group = useRef<THREE.Group>(null);
-  const cupHand = useRef<THREE.Group>(null),
-    dessertHand = useRef<THREE.Group>(null);
-  const current = useRef(new THREE.Vector3(player.x, 0, player.z));
-  const previous = useRef(current.current.clone());
-  const color = ANIMALS.find((a) => a.id === player.animal)!.color;
-  useFrame((_, dt) => {
-    if (!group.current) return;
-    current.current.lerp(
-      new THREE.Vector3(player.x, player.seat === null ? 0 : 0.39, player.z),
-      local ? 1 : 1 - Math.exp(-dt * 12),
-    );
-    const moving = previous.current.distanceTo(current.current) > 0.003;
-    group.current.position.copy(current.current);
-    group.current.position.y += moving
-      ? Math.sin(performance.now() * 0.012) * 0.035
-      : 0;
-    let delta = player.angle - group.current.rotation.y;
-    delta = Math.atan2(Math.sin(delta), Math.cos(delta));
-    group.current.rotation.y += delta * (1 - Math.exp(-dt * 15));
-    previous.current.copy(current.current);
-    const progress = actionProgress(player),
-      lift = Math.sin(progress * Math.PI);
-    if (cupHand.current) {
-      cupHand.current.position.set(
-        0.36 - lift * (player.action === "drink" ? 0.25 : 0),
-        0.58 + lift * (player.action === "drink" ? 0.3 : 0),
-        0.2 + lift * (player.action === "drink" ? 0.12 : 0),
-      );
-      cupHand.current.rotation.z = player.action === "drink" ? lift * 0.7 : 0;
-    }
-    if (dessertHand.current) {
-      dessertHand.current.position.set(
-        -0.35 + lift * (player.action === "eat" ? 0.22 : 0),
-        0.57 + lift * (player.action === "eat" ? 0.26 : 0),
-        0.2 + lift * (player.action === "eat" ? 0.12 : 0),
-      );
-    }
-  });
-  return (
-    <group ref={group} position={[player.x, 0, player.z]}>
-      <Ball position={[0, 0.45, 0]} scale={[0.29, 0.36, 0.23]} color={color} />
-      <Ball position={[0, 0.88, 0]} scale={[0.36, 0.32, 0.3]} color={color} />
-      {[-1, 1].map((side) => (
-        <group key={side}>
-          {player.animal === "rabbit" ? (
-            <Ball
-              position={[side * 0.18, 1.27, 0]}
-              scale={[0.095, 0.32, 0.09]}
-              color={color}
-            />
-          ) : player.animal === "cat" ? (
-            <mesh position={[side * 0.24, 1.15, 0]} rotation-z={-side * 0.18}>
-              <coneGeometry args={[0.14, 0.28, 3]} />
-              <meshStandardMaterial color={color} />
-            </mesh>
-          ) : (
-            <Ball
-              position={[side * 0.3, player.animal === "dog" ? 0.86 : 1.12, 0]}
-              scale={[0.12, player.animal === "dog" ? 0.22 : 0.13, 0.1]}
-              color={player.animal === "dog" ? "#a97d61" : color}
-            />
-          )}
-          <Ball
-            position={[side * 0.115, 0.93, 0.274]}
-            scale={[0.032, 0.04, 0.02]}
-            color="#50443f"
-          />
-          <Ball
-            position={[side * 0.24, 0.82, 0.24]}
-            scale={[0.065, 0.035, 0.02]}
-            color="#eeadb7"
-          />
-          <Ball
-            position={[side * 0.16, 0.12, 0.07]}
-            scale={[0.12, 0.1, 0.16]}
-            color={color}
-          />
-          <Ball
-            position={[side * 0.3, 0.48, 0.08]}
-            scale={[0.1, 0.17, 0.1]}
-            color={color}
-          />
-        </group>
-      ))}
-      <Ball
-        position={[0, 0.83, 0.3]}
-        scale={[0.037, 0.025, 0.026]}
-        color="#9f786e"
-      />
-      {player.drink &&
-        (!player.drinkPlaced ||
-          (player.action === "drink" && actionProgress(player) < 1)) && (
-          <group ref={cupHand} position={[0.36, 0.58, 0.2]}>
-            <Cup
-              drink={player.drink}
-              getLevel={() =>
-                Math.max(
-                  0,
-                  (player.drinkLevel ?? 4) -
-                    (player.action === "drink" ? actionProgress(player) : 0),
-                )
-              }
-              level={Math.max(
-                0,
-                (player.drinkLevel ?? 4) -
-                  (player.action === "drink" && actionProgress(player) < 1
-                    ? actionProgress(player)
-                    : 0),
-              )}
-            />
-          </group>
-        )}
-      {player.dessert !== null &&
-        (!player.dessertPlaced ||
-          (player.action === "eat" && actionProgress(player) < 1)) && (
-          <group ref={dessertHand} position={[-0.35, 0.57, 0.2]} scale={0.65}>
-            <DessertModel
-              kind={player.dessert}
-              getBites={() =>
-                Math.max(
-                  0.1,
-                  (player.dessertBites ?? 3) -
-                    (player.action === "eat" ? actionProgress(player) : 0),
-                )
-              }
-              bites={Math.max(
-                0.1,
-                (player.dessertBites ?? 3) -
-                  (player.action === "eat" && actionProgress(player) < 1
-                    ? actionProgress(player)
-                    : 0),
-              )}
-            />
-          </group>
-        )}
-      <Html
-        position={[0, 1.75, 0]}
-        center
-        distanceFactor={9}
-        style={{ pointerEvents: "none" }}
-      >
-        <div
-          data-x={player.x.toFixed(3)}
-          data-z={player.z.toFixed(3)}
-          data-action={player.action ?? "idle"}
-          data-drink-level={player.drinkLevel ?? 4}
-          data-dessert-bites={player.dessertBites ?? 3}
-          className={`name-tag ${local ? "you" : ""}`}
-        >
-          {player.name}
-          {local ? " · 나" : ""}
-        </div>
-      </Html>
-    </group>
-  );
-}
 function BubbleMesh({
   bubble,
   onPop,
@@ -545,10 +381,19 @@ function World({
     [controls],
   );
   const { gl } = useThree();
+  const activeBrewer = [player.current, ...others]
+    .filter((p) => p.action === "brew")
+    .sort((a, b) => (b.actionAt ?? 0) - (a.actionAt ?? 0))[0];
   useFrame((_, dt) => {
     const p = player.current,
       c = controls.current;
-    if (entered && p.seat === null && !c.cameraBusy && !blocked) {
+    if (
+      entered &&
+      p.seat === null &&
+      !c.cameraBusy &&
+      !blocked &&
+      !((p.action === "drink" || p.action === "eat") && actionProgress(p) < 1)
+    ) {
       let x =
         c.x +
         (c.keys.has("d") || c.keys.has("arrowright") ? 1 : 0) -
@@ -591,18 +436,14 @@ function World({
       <ambientLight intensity={0.9} />
       <hemisphereLight args={["#fff4e6", "#dcede4", 0.8]} />
       <directionalLight position={[3, 8, 2]} intensity={2.5} color="#ffedcf" />
+      <SceneInspection />
       <CameraRig entered={entered} reset={cameraReset} controls={controls} />
       <Cafe
         onSeat={interaction.seat}
         onMachine={interaction.machine}
         onGuestbook={interaction.guestbook}
-        brewAt={Math.max(
-          0,
-          ...[player.current, ...others]
-            .filter((p) => p.action === "brew")
-            .map((p) => p.actionAt ?? 0),
-        )}
-        brewDrink={brewDrink}
+        brewAt={activeBrewer?.actionAt ?? 0}
+        brewDrink={activeBrewer?.brewDrink ?? brewDrink}
       />
       {[player.current, ...others]
         .filter((p) => p.seat !== null)

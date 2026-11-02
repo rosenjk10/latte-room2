@@ -10,6 +10,8 @@ import Scene, { type Controls } from "./Scene";
 import { audio } from "./audio";
 import Guestbook from "./Guestbook";
 import SoundSettings from "./SoundSettings";
+import BrewStatus from "./BrewStatus";
+import { initialNickname, randomNickname, saveNickname } from "./nickname";
 import { useRoom, configured } from "./realtime";
 import {
   ANIMALS,
@@ -22,7 +24,7 @@ import {
   mergeBubbles,
   actionProgress,
   consume,
-  ACTION_DURATION,
+  actionDuration,
   type Drink,
   type Animal,
   type Player,
@@ -67,10 +69,10 @@ export default function App() {
       "rooms" | "drink" | "dessert" | "sound" | "guestbook" | null
     >(null);
   const [animal, setAnimal] = useState<Animal>("cat"),
-    [name, setName] = useState(() => localStorage.getItem("latte:name") || "");
+    [name, setName] = useState(initialNickname);
   const player = useRef<Player>({
     id: crypto.randomUUID(),
-    name: "쉬어가는 고양이",
+    name,
     animal: "cat",
     x: 0,
     z: 3.4,
@@ -100,7 +102,15 @@ export default function App() {
     [busy, setBusy] = useState(false),
     [cameraReset, setCameraReset] = useState(0);
   const actionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function rerollName() {
+    const next = randomNickname(name);
+    player.current.name = next;
+    setName(next);
+    saveNickname(next);
+    setNotice("새 닉네임으로 인사해요.");
+  }
   function cancelAction() {
+    audio.stopBrew();
     if (actionTimer.current) clearTimeout(actionTimer.current);
     actionTimer.current = null;
     player.current.action = "idle";
@@ -109,6 +119,7 @@ export default function App() {
   useEffect(
     () => () => {
       if (actionTimer.current) clearTimeout(actionTimer.current);
+      audio.stopBrew();
     },
     [],
   );
@@ -118,15 +129,19 @@ export default function App() {
     p.action = action;
     p.actionAt = Date.now();
     setBusy(true);
-    audio.play(action === "drink" ? "sip" : action === "eat" ? "eat" : "brew");
+    if (action === "brew")
+      audio.startBrew(p.brewDrink ?? selectedDrink, p.actionAt);
+    else audio.play(action === "drink" ? "sip" : "eat");
     actionTimer.current = setTimeout(() => {
       finish();
       p.action = "idle";
       setBusy(false);
       actionTimer.current = null;
-    }, ACTION_DURATION[action]);
+    }, actionDuration(p));
   }
   function brew() {
+    if (actionProgress(player.current) < 1) return;
+    player.current.brewDrink = selectedDrink;
     startAction("brew", () => {
       Object.assign(player.current, {
         drink: selectedDrink,
@@ -134,7 +149,6 @@ export default function App() {
         drinkPlaced: false,
       });
       setHeldDrink(DRINKS.find((d) => d.id === selectedDrink)!.label);
-      audio.play("cup");
       setNotice("커피가 준비됐어요. 손에 들고 천천히 즐겨요 ☕");
     });
     setPanel(null);
@@ -265,6 +279,7 @@ export default function App() {
       controls.current.keys.clear();
       controls.current.x = 0;
       controls.current.z = 0;
+      if (document.visibilityState === "hidden") audio.stopBrew();
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
@@ -281,7 +296,8 @@ export default function App() {
     cancelAction();
     setCameraReset((n) => n + 1);
     const p = player.current;
-    p.name = name.trim().slice(0, 16) || "쉬어가는 손님";
+    p.name = name.trim().slice(0, 16) || randomNickname();
+    setName(p.name);
     p.animal = animal;
     p.seat = null;
     p.drinkPlaced = false;
@@ -289,7 +305,7 @@ export default function App() {
     p.x = 0;
     p.z = 3.4;
     p.angle = 0;
-    localStorage.setItem("latte:name", p.name);
+    saveNickname(p.name);
     setSeated(false);
     setBubbles([]);
     bubblesRef.current = [];
@@ -461,8 +477,16 @@ export default function App() {
                 maxLength={16}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="쉬어가는 손님"
+                placeholder="랜덤 닉네임"
               />
+              <button
+                className="reroll-name"
+                type="button"
+                aria-label="닉네임 변경"
+                onClick={rerollName}
+              >
+                ↻ 닉네임 변경
+              </button>
             </label>
             <button className="primary enter" onClick={() => join(1)}>
               입장하기 <span>↗</span>
@@ -492,6 +516,9 @@ export default function App() {
             </div>
           </section>
           <div className="room-tools">
+            <button aria-label="닉네임 변경" onClick={rerollName}>
+              ↻ <span>{name}</span>
+            </button>
             <button aria-label="음료 선택" onClick={() => setPanel("drink")}>
               ☕ <span>{heldDrink || "커피 한 잔"}</span>
             </button>
@@ -533,15 +560,19 @@ export default function App() {
             </button>
           </div>
           <div className="consumable-actions">
-            {busy && (
-              <span role="status" className="action-status">
-                {player.current.action === "brew"
-                  ? "커피 추출 중…"
-                  : player.current.action === "drink"
+            {busy &&
+              (player.current.action === "brew" ? (
+                <BrewStatus
+                  drink={player.current.brewDrink ?? selectedDrink}
+                  startedAt={player.current.actionAt ?? Date.now()}
+                />
+              ) : (
+                <span role="status" className="action-status">
+                  {player.current.action === "drink"
                     ? "한 모금 마시는 중…"
                     : "한입 먹는 중…"}
-              </span>
-            )}
+                </span>
+              ))}
             {player.current.drink && (
               <>
                 <button

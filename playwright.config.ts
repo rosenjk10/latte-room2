@@ -16,8 +16,11 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: "local", testMatch: "cafe.spec.ts" },
-    { name: "realtime-mock", testMatch: "multiplayer.spec.ts" },
+    { name: "local", testMatch: ["cafe.spec.ts", "third-local.spec.ts"] },
+    {
+      name: "realtime-mock",
+      testMatch: ["multiplayer.spec.ts", "third-multiplayer.spec.ts"],
+    },
   ],
   webServer: [
     {

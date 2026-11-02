@@ -1,4 +1,5 @@
-export type Animal = "cat" | "rabbit" | "bear" | "dog";
+import { brewPlan } from "./brewing";
+export type Animal = "cat" | "rabbit" | "bear" | "dog" | "otter";
 export type Drink =
   "espresso" | "americano" | "latte" | "cappuccino" | "vanilla" | "choco";
 export type Player = {
@@ -17,6 +18,7 @@ export type Player = {
   dessertPlaced?: boolean;
   action?: "idle" | "brew" | "drink" | "eat";
   actionAt?: number;
+  brewDrink?: Drink;
 };
 export type Bubble = {
   id: string;
@@ -49,6 +51,7 @@ export const ANIMALS: {
   { id: "rabbit", label: "토끼", emoji: "🐰", color: "#fff3ee" },
   { id: "bear", label: "곰", emoji: "🐻", color: "#ba8c73" },
   { id: "dog", label: "강아지", emoji: "🐶", color: "#e9c49c" },
+  { id: "otter", label: "수달", emoji: "🦦", color: "#aa8c72" },
 ];
 export const DRINKS: { id: Drink; label: string; color: string }[] = [
   { id: "espresso", label: "에스프레소", color: "#ede2cc" },
@@ -66,9 +69,14 @@ export const DESSERTS = [
   "🟣 마카롱",
   "🍰 치즈케이크",
 ];
-export const ACTION_DURATION = { brew: 2400, drink: 1100, eat: 1000, idle: 0 };
+export const ACTION_DURATION = { brew: 5800, drink: 1100, eat: 1000, idle: 0 };
+export function actionDuration(p: Player) {
+  return p.action === "brew"
+    ? brewPlan(p.brewDrink ?? "latte").duration
+    : ACTION_DURATION[p.action ?? "idle"];
+}
 export function actionProgress(p: Player, now = Date.now()) {
-  const duration = ACTION_DURATION[p.action ?? "idle"];
+  const duration = actionDuration(p);
   return duration
     ? Math.max(0, Math.min(1, (now - (p.actionAt ?? 0)) / duration))
     : 1;
@@ -184,6 +192,7 @@ export function validPlayer(v: unknown): v is Player {
     (p.dessertPlaced === undefined || typeof p.dessertPlaced === "boolean") &&
     (p.action === undefined ||
       ["idle", "brew", "drink", "eat"].includes(p.action)) &&
+    (p.brewDrink === undefined || DRINKS.some((d) => d.id === p.brewDrink)) &&
     (p.actionAt === undefined ||
       (Number.isFinite(p.actionAt) && p.actionAt >= 0)) &&
     (p.dessert === null ||
