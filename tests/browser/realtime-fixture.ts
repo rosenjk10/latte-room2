@@ -5,6 +5,7 @@ type Membership = {
   joinRef: string;
   key: string;
   presence?: Record<string, unknown>;
+  postgres?: Record<string, unknown>[];
 };
 /** In-memory Phoenix v2 transport; exercises the real Supabase SDK without credentials. */
 export async function mockRealtime(context: BrowserContext) {
@@ -13,6 +14,7 @@ export async function mockRealtime(context: BrowserContext) {
   let ref = 0;
   const metrics: {
     event: string;
+    payload: unknown;
     topic: string;
     at: number;
     socket: WebSocketRoute;
@@ -62,6 +64,106 @@ export async function mockRealtime(context: BrowserContext) {
         headers: { "access-control-allow-origin": "*" },
       }),
   );
+  const entries: {
+    id: string;
+    nickname: string;
+    message: string;
+    created_at: string;
+  }[] = [];
+  let lastWrite = 0;
+  await context.route(
+    "https://latte-e2e.supabase.co/auth/v1/signup",
+    (route) => {
+      const now = Math.floor(Date.now() / 1000),
+        id = "33333333-3333-4333-8333-333333333333";
+      const token = [
+        Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString(
+          "base64url",
+        ),
+        Buffer.from(
+          JSON.stringify({
+            sub: id,
+            role: "authenticated",
+            aud: "authenticated",
+            exp: now + 3600,
+          }),
+        ).toString("base64url"),
+        "test_signature",
+      ].join(".");
+      return route.fulfill({
+        json: {
+          access_token: token,
+          refresh_token: "mock_refresh_only",
+          expires_in: 3600,
+          token_type: "bearer",
+          user: {
+            id,
+            aud: "authenticated",
+            role: "authenticated",
+            is_anonymous: true,
+            app_metadata: { provider: "anonymous", providers: ["anonymous"] },
+            user_metadata: {},
+            created_at: new Date().toISOString(),
+          },
+        },
+        headers: { "access-control-allow-origin": "*" },
+      });
+    },
+  );
+  await context.route(
+    "https://latte-e2e.supabase.co/rest/v1/cafe_guestbook?*",
+    (route) =>
+      route.fulfill({
+        json: entries.slice().reverse(),
+        headers: { "access-control-allow-origin": "*" },
+      }),
+  );
+  await context.route(
+    "https://latte-e2e.supabase.co/rest/v1/rpc/post_cafe_guestbook",
+    async (route) => {
+      if (Date.now() - lastWrite < 60000)
+        return route.fulfill({
+          status: 400,
+          json: {
+            code: "P0001",
+            message: "메모는 1분에 한 번 남길 수 있어요.",
+          },
+        });
+      const body = route.request().postDataJSON();
+      lastWrite = Date.now();
+      const entry = {
+        id: crypto.randomUUID(),
+        nickname: body.p_nickname,
+        message: body.p_message,
+        created_at: new Date().toISOString(),
+      };
+      entries.push(entry);
+      await route.fulfill({
+        json: entry,
+        headers: { "access-control-allow-origin": "*" },
+      });
+      memberships
+        .filter((m) => m.postgres?.length)
+        .forEach((m) =>
+          send(m, "postgres_changes", {
+            ids: [1],
+            data: {
+              schema: "public",
+              table: "cafe_guestbook",
+              type: "INSERT",
+              commit_timestamp: entry.created_at,
+              columns: Object.keys(entry).map((name) => ({
+                name,
+                type: "text",
+              })),
+              record: entry,
+              old_record: {},
+              errors: null,
+            },
+          }),
+        );
+    },
+  );
   await context.routeWebSocket("wss://latte-e2e.supabase.co/**", (socket) => {
     sockets.push(socket);
     socket.onClose(() => remove(socket));
@@ -101,9 +203,25 @@ export async function mockRealtime(context: BrowserContext) {
           topic,
           joinRef: replyRef,
           key: payload.config.presence.key || String(++ref),
+          postgres: payload.config.postgres_changes,
         };
         memberships.push(m);
-        send(m, "phx_reply", { status: "ok", response: {} }, replyRef);
+        send(
+          m,
+          "phx_reply",
+          {
+            status: "ok",
+            response: {
+              postgres_changes: (m.postgres || []).map(
+                (p: Record<string, unknown>, i: number) => ({
+                  ...p,
+                  id: i + 1,
+                }),
+              ),
+            },
+          },
+          replyRef,
+        );
         sync(topic);
         return;
       }
@@ -129,7 +247,13 @@ export async function mockRealtime(context: BrowserContext) {
         send(member, "phx_reply", { status: "ok", response: {} }, replyRef);
         sync(topic);
       } else if (event === "broadcast") {
-        metrics.push({ event: payload.event, topic, at: Date.now(), socket });
+        metrics.push({
+          event: payload.event,
+          payload: payload.payload,
+          topic,
+          at: Date.now(),
+          socket,
+        });
         memberships
           .filter((m) => m.topic === topic && m.socket !== socket)
           .forEach((m) => send(m, "broadcast", payload));

@@ -8,7 +8,7 @@ export const configured =
   !!key &&
   /^https:\/\/[a-z0-9.-]+\.supabase\.co\/?$/i.test(url) &&
   !key.includes("YOUR_");
-const client = configured
+export const client = configured
   ? createClient(url, key, { realtime: { params: { eventsPerSecond: 10 } } })
   : null;
 export type Status =

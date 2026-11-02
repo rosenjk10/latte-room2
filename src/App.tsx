@@ -8,6 +8,8 @@ import {
 } from "react";
 import Scene, { type Controls } from "./Scene";
 import { audio } from "./audio";
+import Guestbook from "./Guestbook";
+import SoundSettings from "./SoundSettings";
 import { useRoom, configured } from "./realtime";
 import {
   ANIMALS,
@@ -18,6 +20,10 @@ import {
   BUBBLE_LIFE,
   bubblePosition,
   mergeBubbles,
+  actionProgress,
+  consume,
+  ACTION_DURATION,
+  type Drink,
   type Animal,
   type Player,
   type Bubble,
@@ -57,7 +63,9 @@ const ROOM_NAMES = [
 ];
 export default function App() {
   const [room, setRoom] = useState<number | null>(null),
-    [panel, setPanel] = useState<"rooms" | "drink" | "dessert" | null>(null);
+    [panel, setPanel] = useState<
+      "rooms" | "drink" | "dessert" | "sound" | "guestbook" | null
+    >(null);
   const [animal, setAnimal] = useState<Animal>("cat"),
     [name, setName] = useState(() => localStorage.getItem("latte:name") || "");
   const player = useRef<Player>({
@@ -70,6 +78,12 @@ export default function App() {
     seat: null,
     drink: null,
     dessert: null,
+    drinkLevel: 4,
+    dessertBites: 3,
+    action: "idle",
+    actionAt: 0,
+    drinkPlaced: false,
+    dessertPlaced: false,
   });
   const controls = useRef<Controls>({ x: 0, z: 0, keys: new Set() });
   const [bubbles, setBubbles] = useState<Bubble[]>([]),
@@ -82,6 +96,88 @@ export default function App() {
     [notice, setNotice] = useState(""),
     [seated, setSeated] = useState(false),
     [heldDrink, setHeldDrink] = useState<string>("");
+  const [selectedDrink, setSelectedDrink] = useState<Drink>("latte"),
+    [busy, setBusy] = useState(false),
+    [cameraReset, setCameraReset] = useState(0);
+  const actionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function cancelAction() {
+    if (actionTimer.current) clearTimeout(actionTimer.current);
+    actionTimer.current = null;
+    player.current.action = "idle";
+    setBusy(false);
+  }
+  useEffect(
+    () => () => {
+      if (actionTimer.current) clearTimeout(actionTimer.current);
+    },
+    [],
+  );
+  function startAction(action: "brew" | "drink" | "eat", finish: () => void) {
+    const p = player.current;
+    if (actionProgress(p) < 1) return;
+    p.action = action;
+    p.actionAt = Date.now();
+    setBusy(true);
+    audio.play(action === "drink" ? "sip" : action === "eat" ? "eat" : "brew");
+    actionTimer.current = setTimeout(() => {
+      finish();
+      p.action = "idle";
+      setBusy(false);
+      actionTimer.current = null;
+    }, ACTION_DURATION[action]);
+  }
+  function brew() {
+    startAction("brew", () => {
+      Object.assign(player.current, {
+        drink: selectedDrink,
+        drinkLevel: 4,
+        drinkPlaced: false,
+      });
+      setHeldDrink(DRINKS.find((d) => d.id === selectedDrink)!.label);
+      audio.play("cup");
+      setNotice("커피가 준비됐어요. 손에 들고 천천히 즐겨요 ☕");
+    });
+    setPanel(null);
+  }
+  function sip() {
+    if (!player.current.drink || (player.current.drinkLevel ?? 4) <= 0) return;
+    startAction("drink", () => {
+      Object.assign(player.current, consume(player.current, "drink"));
+      setNotice(
+        player.current.drinkLevel === 0
+          ? "빈 컵이에요. 컵을 정리하거나 새 커피를 내려요."
+          : "따뜻한 한 모금, 조금 더 여유롭게.",
+      );
+    });
+  }
+  function eat() {
+    if (player.current.dessert === null) return;
+    startAction("eat", () => {
+      Object.assign(player.current, consume(player.current, "eat"));
+      setNotice(
+        player.current.dessert === null
+          ? "잘 먹었어요. 접시를 정리했어요."
+          : "작은 한입, 달콤한 휴식.",
+      );
+    });
+  }
+  function serveDessert(i: number) {
+    Object.assign(player.current, {
+      dessert: i,
+      dessertBites: 3,
+      dessertPlaced: false,
+    });
+    audio.play("cup");
+    setNotice(`${DESSERTS[i]} 준비됐어요!`);
+    setPanel(null);
+  }
+  async function toggleSound() {
+    try {
+      setMuted(!(await audio.toggle()));
+    } catch {
+      setNotice("브라우저에서 소리를 허용해주세요.");
+    }
+  }
   const receiveBubbles = useCallback(
     (incoming: Bubble[]) =>
       setBubbles((prev) => {
@@ -122,7 +218,10 @@ export default function App() {
         bubblesRef.current = next;
         return next.length === prev.length ? prev : next;
       });
-      setBursts((prev) => prev.filter((b) => performance.now() - b.born < 700));
+      setBursts((prev) => {
+        const next = prev.filter((b) => performance.now() - b.born < 700);
+        return next.length === prev.length ? prev : next;
+      });
       popped.current.forEach((t, id) => {
         if (now - t > 20000) popped.current.delete(id);
       });
@@ -179,10 +278,14 @@ export default function App() {
     };
   }, []);
   function join(next: number) {
+    cancelAction();
+    setCameraReset((n) => n + 1);
     const p = player.current;
     p.name = name.trim().slice(0, 16) || "쉬어가는 손님";
     p.animal = animal;
     p.seat = null;
+    p.drinkPlaced = false;
+    p.dessertPlaced = false;
     p.x = 0;
     p.z = 3.4;
     p.angle = 0;
@@ -208,6 +311,9 @@ export default function App() {
     setNotice("잠시 앉아 쉬어요. 일어나기로 다시 걸을 수 있어요.");
   }
   function stand() {
+    player.current.drinkPlaced = false;
+    player.current.dessertPlaced = false;
+    audio.play("cup");
     const s = SEATS[player.current.seat ?? 0];
     Object.assign(player.current, { seat: null, x: s.x, z: s.z + 0.85 });
     setSeated(false);
@@ -263,6 +369,9 @@ export default function App() {
       data-room={room ?? "welcome"}
       data-bubbles={bubbles.length}
       data-seated={seated}
+      data-drink-level={player.current.drinkLevel ?? 4}
+      data-dessert-bites={player.current.dessertBites ?? 3}
+      data-action={player.current.action ?? "idle"}
       className={room === null ? "app welcome" : "app in-room"}
     >
       <SceneBoundary>
@@ -282,6 +391,10 @@ export default function App() {
           onMachine={machine}
           tick={net.sendPlayer}
           entered={room !== null}
+          cameraReset={cameraReset}
+          onGuestbook={() => setPanel("guestbook")}
+          brewDrink={selectedDrink}
+          blocked={panel !== null}
         />
       </SceneBoundary>
       <header className="topbar">
@@ -296,14 +409,16 @@ export default function App() {
           <button
             className="icon-button"
             aria-label={muted ? "사운드 켜기" : "사운드 끄기"}
-            onClick={() => {
-              void audio
-                .toggle()
-                .then((on) => setMuted(!on))
-                .catch(() => setNotice("브라우저에서 소리를 허용해주세요."));
-            }}
+            onClick={toggleSound}
           >
             {muted ? "♩ OFF" : "♫ ON"}
+          </button>
+          <button
+            className="icon-button"
+            aria-label="사운드 설정"
+            onClick={() => setPanel("sound")}
+          >
+            ⚙ <span className="settings-text">소리 설정</span>
           </button>
         </div>
       </header>
@@ -392,6 +507,7 @@ export default function App() {
             <button
               aria-label="나가기"
               onClick={() => {
+                cancelAction();
                 setRoom(null);
                 setBubbles([]);
                 bubblesRef.current = [];
@@ -402,11 +518,98 @@ export default function App() {
               ↗ <span>나가기</span>
             </button>
           </div>
+          <div className="camera-tools">
+            <button
+              aria-label="카메라 시점 초기화"
+              onClick={() => setCameraReset((n) => n + 1)}
+            >
+              ⟲ 시점 초기화
+            </button>
+            <button
+              aria-label="방명록 열기"
+              onClick={() => setPanel("guestbook")}
+            >
+              ✎ 방명록
+            </button>
+          </div>
+          <div className="consumable-actions">
+            {busy && (
+              <span role="status" className="action-status">
+                {player.current.action === "brew"
+                  ? "커피 추출 중…"
+                  : player.current.action === "drink"
+                    ? "한 모금 마시는 중…"
+                    : "한입 먹는 중…"}
+              </span>
+            )}
+            {player.current.drink && (
+              <>
+                <button
+                  disabled={busy}
+                  onClick={() => {
+                    if ((player.current.drinkLevel ?? 4) > 0) sip();
+                    else {
+                      player.current.drink = null;
+                      player.current.drinkPlaced = false;
+                      setHeldDrink("");
+                      audio.play("cup");
+                    }
+                  }}
+                >
+                  {(player.current.drinkLevel ?? 4) > 0
+                    ? `☕ 마시기 · ${player.current.drinkLevel ?? 4}/4`
+                    : "빈 컵 정리"}
+                </button>
+                {seated && (
+                  <button
+                    disabled={busy}
+                    onClick={() => {
+                      player.current.drinkPlaced = !player.current.drinkPlaced;
+                      audio.play("cup");
+                      setNotice(
+                        player.current.drinkPlaced
+                          ? "컵을 테이블에 내려놓았어요."
+                          : "컵을 다시 들었어요.",
+                      );
+                    }}
+                  >
+                    {player.current.drinkPlaced ? "컵 들기" : "컵 내려놓기"}
+                  </button>
+                )}
+              </>
+            )}
+            {player.current.dessert !== null && (
+              <>
+                <button disabled={busy} onClick={eat}>
+                  🍰 먹기 · {player.current.dessertBites ?? 3}/3
+                </button>
+                {seated && (
+                  <button
+                    disabled={busy}
+                    onClick={() => {
+                      player.current.dessertPlaced =
+                        !player.current.dessertPlaced;
+                      audio.play("cup");
+                      setNotice(
+                        player.current.dessertPlaced
+                          ? "디저트를 테이블에 올렸어요."
+                          : "접시를 다시 들었어요.",
+                      );
+                    }}
+                  >
+                    {player.current.dessertPlaced
+                      ? "접시 들기"
+                      : "테이블에 올리기"}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
           <div className="bottom-hint">
             {seated
               ? "편안히 쉬고 있어요 ☁"
               : "WASD / 방향키로 이동 · 의자를 눌러 앉기"}
-            <small>방울을 톡 눌러 터뜨려 보세요</small>
+            <small>드래그 회전 · 휠 / 두 손가락 핀치 줌 · 방울은 톡!</small>
           </div>
           <Joystick controls={controls} />
           <div className="play-actions">
@@ -467,11 +670,13 @@ export default function App() {
             role="dialog"
             aria-modal="true"
             aria-label={
-              panel === "rooms"
-                ? "카페 선택"
-                : panel === "drink"
-                  ? "음료 선택"
-                  : "디저트 선택"
+              {
+                rooms: "카페 선택",
+                drink: "음료 선택",
+                dessert: "디저트 선택",
+                sound: "사운드 설정",
+                guestbook: "방명록",
+              }[panel]
             }
             className="modal"
             onKeyDown={(e) => {
@@ -488,20 +693,32 @@ export default function App() {
             </button>
             <p className="eyebrow">A SMALL TREAT FOR YOUR DAY</p>
             <h2>
-              {panel === "rooms"
-                ? "어디에서 쉬어갈까요?"
-                : panel === "drink"
-                  ? "오늘은 어떤 커피?"
-                  : "달콤한 작은 행운"}
+              {
+                {
+                  rooms: "어디에서 쉬어갈까요?",
+                  drink: "나를 위한 작은 에스프레소 바",
+                  dessert: "유리 너머, 달콤한 오늘",
+                  sound: "내 취향의 작은 소리",
+                  guestbook: "온기를 남기는 메모",
+                }[panel]
+              }
             </h2>
             <p className="modal-description">
-              {panel === "rooms"
-                ? "열 개의 작은 공간, 마음이 머무는 곳으로."
-                : panel === "drink"
-                  ? "모든 음료는 마음껏 즐길 수 있어요."
-                  : "무인 자판기가 골라주는 오늘의 디저트."}
+              {
+                {
+                  rooms: "열 개의 작은 공간, 마음이 머무는 곳으로.",
+                  drink: "원두를 고르고, 내리고, 천천히 한 모금.",
+                  dessert: "마음에 드는 디저트를 접시에 담아드려요.",
+                  sound: "배경과 효과음은 각자 편안한 크기로.",
+                  guestbook: "모든 카페가 함께 보는 작은 방명록이에요.",
+                }[panel]
+              }
             </p>
-            {panel === "rooms" ? (
+            {panel === "sound" ? (
+              <SoundSettings onToggle={toggleSound} />
+            ) : panel === "guestbook" ? (
+              <Guestbook nickname={name.trim() || player.current.name} />
+            ) : panel === "rooms" ? (
               <div className="room-grid">
                 {ROOM_NAMES.map((n, i) => (
                   <button
@@ -524,33 +741,59 @@ export default function App() {
                 ))}
               </div>
             ) : panel === "drink" ? (
-              <div className="drink-grid">
-                {DRINKS.map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => {
-                      player.current.drink = d.id;
-                      setHeldDrink(d.label);
-                      setNotice(`${d.label} 한 잔, 준비됐어요 ☕`);
-                      setPanel(null);
-                    }}
-                  >
-                    <span style={{ background: d.color }}>☕</span>
-                    <strong>{d.label}</strong>
-                    <small>made with a little love</small>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="drink-grid">
+                  {DRINKS.map((d) => (
+                    <button
+                      aria-label={d.label}
+                      aria-pressed={selectedDrink === d.id}
+                      key={d.id}
+                      className={selectedDrink === d.id ? "selected-menu" : ""}
+                      onClick={() => setSelectedDrink(d.id)}
+                    >
+                      <span style={{ background: d.color }}>
+                        {d.id === "espresso" ? "☕" : "☕"}
+                      </span>
+                      <strong>{d.label}</strong>
+                      <small>
+                        {d.id === "espresso"
+                          ? "작은 데미타스"
+                          : d.id === "cappuccino"
+                            ? "넓은 크림 컵"
+                            : "나만의 파스텔 컵"}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className="primary brew-button"
+                  disabled={busy}
+                  onClick={brew}
+                >
+                  {DRINKS.find((d) => d.id === selectedDrink)!.label} 추출하기
+                </button>
+              </>
             ) : (
               <>
-                <div className="dessert-art">🧁</div>
+                <div className="dessert-grid">
+                  {[3, 4, 1, 0, 5, 2].map((i) => (
+                    <button
+                      key={i}
+                      disabled={busy}
+                      onClick={() => serveDessert(i)}
+                    >
+                      <span>{DESSERTS[i].split(" ")[0]}</span>
+                      <strong>
+                        {DESSERTS[i].slice(DESSERTS[i].indexOf(" ") + 1)}
+                      </strong>
+                    </button>
+                  ))}
+                </div>
                 <button
-                  className="primary"
+                  className="surprise-dessert"
+                  disabled={busy}
                   onClick={() => {
-                    const i = Math.floor(Math.random() * DESSERTS.length);
-                    player.current.dessert = i;
-                    setNotice(`${DESSERTS[i]} 당첨! 달콤하게 쉬어가요.`);
-                    setPanel(null);
+                    serveDessert(Math.floor(Math.random() * DESSERTS.length));
                   }}
                 >
                   랜덤 디저트 받기 🎁

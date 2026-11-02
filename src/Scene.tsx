@@ -1,7 +1,16 @@
-import { memo, useRef } from "react";
+import { memo, useRef, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Html, RoundedBox } from "@react-three/drei";
+import { ContactShadows, Html } from "@react-three/drei";
 import * as THREE from "three";
+import CameraRig from "./CameraRig";
+import {
+  Cup,
+  DessertModel,
+  EspressoStation,
+  DessertCase,
+  CorkBoard,
+} from "./CafeObjects";
+import { audio } from "./audio";
 import {
   ANIMALS,
   DRINKS,
@@ -10,6 +19,7 @@ import {
   bubblePosition,
   BUBBLE_LIFE,
   clampPosition,
+  actionProgress,
   type Player,
   type Bubble,
   type Burst,
@@ -63,7 +73,13 @@ function Box({
 const Cafe = memo(function Cafe({
   onSeat,
   onMachine,
+  onGuestbook,
+  brewAt,
+  brewDrink,
 }: {
+  onGuestbook: () => void;
+  brewAt: number;
+  brewDrink: import("./model").Drink;
   onSeat: (i: number) => void;
   onMachine: (kind: "drink" | "dessert") => void;
 }) {
@@ -143,6 +159,7 @@ const Cafe = memo(function Cafe({
           position={[s.x, 0, s.z]}
           rotation-y={s.angle}
           onClick={(e) => {
+            if (e.delta > 5) return;
             e.stopPropagation();
             onSeat(i);
           }}
@@ -195,41 +212,13 @@ const Cafe = memo(function Cafe({
           ))}
         </group>
       ))}
-      {["drink", "dessert"].map((kind, i) => (
-        <group
-          key={kind}
-          position={[i ? 4.15 : 2.55, 0, 3.7]}
-          onClick={(e) => {
-            e.stopPropagation();
-            onMachine(kind as "drink" | "dessert");
-          }}
-        >
-          <RoundedBox
-            args={[1.22, 1.95, 0.75]}
-            radius={0.12}
-            position={[0, 0.98, 0]}
-          >
-            <meshStandardMaterial color={i ? "#ddd6f4" : "#f5d9df"} />
-          </RoundedBox>
-          <Box
-            position={[0, 1.22, 0.39]}
-            size={[0.95, 0.85, 0.04]}
-            color="#fff4e6"
-          />
-          <Box
-            position={[0, 0.48, 0.4]}
-            size={[0.65, 0.3, 0.04]}
-            color="#89776e"
-          />
-          <Html position={[0, 1.38, 0.44]} transform center distanceFactor={4}>
-            <div className="machine-label">
-              {i ? "🍰" : "☕"}
-              <br />
-              {i ? "SWEET" : "COFFEE"}
-            </div>
-          </Html>
-        </group>
-      ))}
+      <EspressoStation
+        brewAt={brewAt}
+        drink={brewDrink}
+        onClick={() => onMachine("drink")}
+      />
+      <DessertCase onClick={() => onMachine("dessert")} />
+      <CorkBoard onClick={onGuestbook} />
       {[-3, 0, 3].map((x) => (
         <group key={x} position={[x, 3.7, -1]}>
           <mesh>
@@ -254,6 +243,8 @@ function Animal({
   local?: boolean;
 }) {
   const group = useRef<THREE.Group>(null);
+  const cupHand = useRef<THREE.Group>(null),
+    dessertHand = useRef<THREE.Group>(null);
   const current = useRef(new THREE.Vector3(player.x, 0, player.z));
   const previous = useRef(current.current.clone());
   const color = ANIMALS.find((a) => a.id === player.animal)!.color;
@@ -272,6 +263,23 @@ function Animal({
     delta = Math.atan2(Math.sin(delta), Math.cos(delta));
     group.current.rotation.y += delta * (1 - Math.exp(-dt * 15));
     previous.current.copy(current.current);
+    const progress = actionProgress(player),
+      lift = Math.sin(progress * Math.PI);
+    if (cupHand.current) {
+      cupHand.current.position.set(
+        0.36 - lift * (player.action === "drink" ? 0.25 : 0),
+        0.58 + lift * (player.action === "drink" ? 0.3 : 0),
+        0.2 + lift * (player.action === "drink" ? 0.12 : 0),
+      );
+      cupHand.current.rotation.z = player.action === "drink" ? lift * 0.7 : 0;
+    }
+    if (dessertHand.current) {
+      dessertHand.current.position.set(
+        -0.35 + lift * (player.action === "eat" ? 0.22 : 0),
+        0.57 + lift * (player.action === "eat" ? 0.26 : 0),
+        0.2 + lift * (player.action === "eat" ? 0.12 : 0),
+      );
+    }
   });
   return (
     <group ref={group} position={[player.x, 0, player.z]}>
@@ -324,34 +332,66 @@ function Animal({
         scale={[0.037, 0.025, 0.026]}
         color="#9f786e"
       />
-      {player.drink && (
-        <group position={[0.36, 0.58, 0.2]}>
-          <mesh>
-            <cylinderGeometry args={[0.085, 0.067, 0.2, 12]} />
-            <meshStandardMaterial
-              color={DRINKS.find((d) => d.id === player.drink)!.color}
+      {player.drink &&
+        (!player.drinkPlaced ||
+          (player.action === "drink" && actionProgress(player) < 1)) && (
+          <group ref={cupHand} position={[0.36, 0.58, 0.2]}>
+            <Cup
+              drink={player.drink}
+              getLevel={() =>
+                Math.max(
+                  0,
+                  (player.drinkLevel ?? 4) -
+                    (player.action === "drink" ? actionProgress(player) : 0),
+                )
+              }
+              level={Math.max(
+                0,
+                (player.drinkLevel ?? 4) -
+                  (player.action === "drink" && actionProgress(player) < 1
+                    ? actionProgress(player)
+                    : 0),
+              )}
             />
-          </mesh>
-          <mesh position={[0, 0.11, 0]}>
-            <cylinderGeometry args={[0.09, 0.09, 0.025, 12]} />
-            <meshStandardMaterial color="#8c654d" />
-          </mesh>
-        </group>
-      )}
-      {player.dessert !== null && (
-        <Ball
-          position={[-0.35, 0.57, 0.2]}
-          scale={[0.1, 0.075, 0.1]}
-          color={["#f5b8cc", "#aa7c53", "#ddd6f4", "#e3af6c"][player.dessert]}
-        />
-      )}
+          </group>
+        )}
+      {player.dessert !== null &&
+        (!player.dessertPlaced ||
+          (player.action === "eat" && actionProgress(player) < 1)) && (
+          <group ref={dessertHand} position={[-0.35, 0.57, 0.2]} scale={0.65}>
+            <DessertModel
+              kind={player.dessert}
+              getBites={() =>
+                Math.max(
+                  0.1,
+                  (player.dessertBites ?? 3) -
+                    (player.action === "eat" ? actionProgress(player) : 0),
+                )
+              }
+              bites={Math.max(
+                0.1,
+                (player.dessertBites ?? 3) -
+                  (player.action === "eat" && actionProgress(player) < 1
+                    ? actionProgress(player)
+                    : 0),
+              )}
+            />
+          </group>
+        )}
       <Html
         position={[0, 1.75, 0]}
         center
         distanceFactor={9}
         style={{ pointerEvents: "none" }}
       >
-        <div className={`name-tag ${local ? "you" : ""}`}>
+        <div
+          data-x={player.x.toFixed(3)}
+          data-z={player.z.toFixed(3)}
+          data-action={player.action ?? "idle"}
+          data-drink-level={player.drinkLevel ?? 4}
+          data-dessert-bites={player.dessertBites ?? 3}
+          className={`name-tag ${local ? "you" : ""}`}
+        >
           {player.name}
           {local ? " · 나" : ""}
         </div>
@@ -382,7 +422,8 @@ function BubbleMesh({
     <mesh
       ref={ref}
       geometry={sphere}
-      onPointerDown={(e) => {
+      onClick={(e) => {
+        if (e.delta > 5) return;
         e.stopPropagation();
         onPop(bubble.id);
       }}
@@ -446,7 +487,13 @@ function Sparkles({ burst }: { burst: Burst }) {
     </group>
   );
 }
-export type Controls = { x: number; z: number; keys: Set<string> };
+export type Controls = {
+  x: number;
+  z: number;
+  keys: Set<string>;
+  cameraBusy?: boolean;
+  draggedUntil?: number;
+};
 function World({
   player,
   controls,
@@ -458,6 +505,10 @@ function World({
   onMachine,
   tick,
   entered,
+  cameraReset,
+  onGuestbook,
+  brewDrink,
+  blocked,
 }: {
   player: React.RefObject<Player>;
   controls: React.RefObject<Controls>;
@@ -469,12 +520,35 @@ function World({
   onMachine: (k: "drink" | "dessert") => void;
   tick: () => void;
   entered: boolean;
+  cameraReset: number;
+  onGuestbook: () => void;
+  brewDrink: import("./model").Drink;
+  blocked: boolean;
 }) {
-  const { camera, size } = useThree();
+  const handlers = useRef({ onSeat, onMachine, onGuestbook });
+  handlers.current = { onSeat, onMachine, onGuestbook };
+  const interaction = useMemo(
+    () => ({
+      seat: (i: number) => {
+        if (performance.now() > (controls.current.draggedUntil ?? 0))
+          handlers.current.onSeat(i);
+      },
+      machine: (k: "drink" | "dessert") => {
+        if (performance.now() > (controls.current.draggedUntil ?? 0))
+          handlers.current.onMachine(k);
+      },
+      guestbook: () => {
+        if (performance.now() > (controls.current.draggedUntil ?? 0))
+          handlers.current.onGuestbook();
+      },
+    }),
+    [controls],
+  );
+  const { gl } = useThree();
   useFrame((_, dt) => {
     const p = player.current,
       c = controls.current;
-    if (entered && p.seat === null) {
+    if (entered && p.seat === null && !c.cameraBusy && !blocked) {
       let x =
         c.x +
         (c.keys.has("d") || c.keys.has("arrowright") ? 1 : 0) -
@@ -499,24 +573,15 @@ function World({
         if (!blocked) {
           p.x = next.x;
           p.z = next.z;
+          audio.play("step");
         }
         p.angle = Math.atan2(x, z);
       }
     }
-    const mobile = size.width / size.height < 0.8;
-    camera.position.lerp(
-      new THREE.Vector3(
-        entered ? p.x * (mobile ? 0.65 : 0.28) : 7.8,
-        entered ? (mobile ? 12.5 : 8.3) : 6.8,
-        entered ? (mobile ? 17 : 11) + p.z * 0.16 : 10.5,
-      ),
-      1 - Math.exp(-dt * 2),
-    );
-    camera.lookAt(
-      entered && mobile ? p.x * 0.55 : 0,
-      0.3,
-      entered && mobile ? p.z * 0.15 - 0.6 : -0.6,
-    );
+    gl.domElement.dataset.player = JSON.stringify([
+      +p.x.toFixed(3),
+      +p.z.toFixed(3),
+    ]);
     tick();
   });
   return (
@@ -526,13 +591,58 @@ function World({
       <ambientLight intensity={0.9} />
       <hemisphereLight args={["#fff4e6", "#dcede4", 0.8]} />
       <directionalLight position={[3, 8, 2]} intensity={2.5} color="#ffedcf" />
-      <Cafe onSeat={onSeat} onMachine={onMachine} />
+      <CameraRig entered={entered} reset={cameraReset} controls={controls} />
+      <Cafe
+        onSeat={interaction.seat}
+        onMachine={interaction.machine}
+        onGuestbook={interaction.guestbook}
+        brewAt={Math.max(
+          0,
+          ...[player.current, ...others]
+            .filter((p) => p.action === "brew")
+            .map((p) => p.actionAt ?? 0),
+        )}
+        brewDrink={brewDrink}
+      />
+      {[player.current, ...others]
+        .filter((p) => p.seat !== null)
+        .map((p) => {
+          const table = TABLES[Math.floor(p.seat! / 2)],
+            eating = p.action === "eat" && actionProgress(p) < 1,
+            drinking = p.action === "drink" && actionProgress(p) < 1;
+          return (
+            <group
+              key={p.id}
+              position={[
+                table[0] + (p.seat! % 2 ? 0.25 : -0.25),
+                0.95,
+                table[1] + 0.2,
+              ]}
+            >
+              {p.dessert !== null && p.dessertPlaced && !eating && (
+                <DessertModel kind={p.dessert} bites={p.dessertBites ?? 3} />
+              )}
+              {p.drink && p.drinkPlaced && !drinking && (
+                <group position={[0, 0.12, -0.35]}>
+                  <Cup drink={p.drink} level={p.drinkLevel ?? 4} />
+                </group>
+              )}
+            </group>
+          );
+        })}
       <Animal player={player.current} local />
       {others.map((p) => (
         <Animal key={p.id} player={p} />
       ))}
       {bubbles.map((b) => (
-        <BubbleMesh key={b.id} bubble={b} onPop={onPop} />
+        <BubbleMesh
+          key={b.id}
+          bubble={b}
+          onPop={(id) => {
+            if (performance.now() > (controls.current.draggedUntil ?? 0))
+              onPop(id);
+          }}
+        />
       ))}
       {bursts.map((b) => (
         <Sparkles key={b.id} burst={b} />

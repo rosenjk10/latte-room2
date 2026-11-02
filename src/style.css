@@ -868,3 +868,343 @@ button:active {
     max-height: 90dvh;
   }
 }
+/* Camera and interaction controls are DOM overlays, separate from the canvas gestures. */
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.settings-text {
+  font-size: 10px;
+}
+.top-actions {
+  gap: 9px;
+}
+.camera-tools {
+  position: absolute;
+  top: 239px;
+  left: 33px;
+  display: flex;
+  gap: 8px;
+}
+.camera-tools button,
+.consumable-actions button {
+  min-height: 44px;
+  border-radius: 13px;
+  padding: 10px 15px;
+  background: #fffaf0ed;
+  border: 1px solid #fff;
+  font-size: 11px;
+  box-shadow: 0 4px 16px #57463608;
+}
+.camera-tools button {
+  font-size: 10px;
+}
+.consumable-actions {
+  position: absolute;
+  left: 50%;
+  bottom: 105px;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  max-width: 420px;
+  width: max-content;
+}
+.consumable-actions button {
+  background: #e5eee1f5;
+  color: #607761;
+}
+.consumable-actions button:nth-child(even) {
+  background: #f8edddf5;
+  color: #8a7866;
+}
+.action-status {
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 11px;
+  background: #fff7e7e8;
+  padding: 10px;
+  border-radius: 13px;
+}
+.espresso-label {
+  font-size: 7px;
+  letter-spacing: 1.6px;
+  width: 130px;
+  text-align: center;
+  color: #837766;
+  pointer-events: none;
+}
+.brew-button {
+  width: 100%;
+  margin-top: 18px;
+}
+.drink-grid .selected-menu {
+  border-color: #8eaa92;
+  background: #eff2e6;
+  box-shadow: 0 0 0 1px #8eaa9240;
+}
+.dessert-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.dessert-grid button {
+  background: #f3eadd;
+  border: 1px solid #e7ddcd;
+  border-radius: 14px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-height: 100px;
+}
+.dessert-grid span {
+  font-size: 30px;
+}
+.dessert-grid strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.surprise-dessert {
+  margin-top: 15px;
+  background: transparent;
+  width: 100%;
+  padding: 13px;
+  font-size: 11px;
+  color: #9b8b79;
+}
+.sound-settings > p {
+  font-size: 12px;
+  line-height: 1.9;
+  color: #9c8b79;
+}
+.sound-settings label {
+  display: block;
+  font-size: 12px;
+  margin: 25px 0;
+}
+.sound-settings output {
+  float: right;
+  color: #789178;
+}
+.sound-settings input {
+  display: block;
+  width: 100%;
+  margin-top: 15px;
+  accent-color: #8aab8d;
+  min-height: 32px;
+}
+.sound-settings .primary {
+  width: 100%;
+}
+.sound-settings small,
+.guestbook form > small {
+  display: block;
+  font-size: 10px;
+  color: #a09484;
+  line-height: 1.8;
+  margin-top: 12px;
+}
+.guestbook label {
+  display: block;
+  font-size: 11px;
+  margin: 13px 0;
+  color: #9a8a78;
+}
+.guestbook input,
+.guestbook textarea {
+  display: block;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #ddd3c1;
+  padding: 12px;
+  margin-top: 8px;
+  background: #fffdf6;
+  color: #645849;
+  font: inherit;
+  font-size: 13px;
+}
+.guestbook textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+.memo-counter {
+  text-align: right;
+  font-size: 9px;
+  color: #a29481;
+  margin: 8px 0 15px;
+}
+.guestbook .primary {
+  width: 100%;
+}
+.inline-notice,
+.inline-error {
+  font-size: 12px;
+  line-height: 1.8;
+  padding: 13px;
+  border-radius: 10px;
+  background: #e7eddf;
+  color: #718567;
+}
+.inline-error {
+  background: #f6e1df;
+  color: #9b6260;
+}
+.guestbook-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 25px;
+  font-size: 11px;
+}
+.guestbook-heading button {
+  background: #ede8db;
+  border-radius: 8px;
+  padding: 10px;
+}
+.empty-memos {
+  font-size: 11px;
+  color: #aa9981;
+  text-align: center;
+  padding: 20px 0;
+}
+.memo-list {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.memo-list li {
+  padding: 17px 13px;
+  background: #f3e2e6;
+  border-radius: 3px 3px 16px 3px;
+  overflow-wrap: anywhere;
+}
+.memo-list li:nth-child(3n + 2) {
+  background: #e4eddf;
+}
+.memo-list li:nth-child(3n) {
+  background: #e7e0f0;
+}
+.memo-list p {
+  font-size: 12px;
+  white-space: pre-wrap;
+  line-height: 1.8;
+  margin: 0 0 18px;
+}
+.memo-list footer {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 9px;
+  color: #9e8f7c;
+}
+.memo-list strong {
+  font-weight: 500;
+}
+.memo-list time {
+  font-size: 8px;
+}
+@media (max-width: 700px) {
+  .topbar {
+    padding: 18px 16px;
+  }
+  .top-actions {
+    gap: 5px;
+  }
+  .settings-text {
+    display: none;
+  }
+  .top-actions .icon-button {
+    min-width: 42px;
+    min-height: 42px;
+    padding: 9px;
+  }
+  .camera-tools {
+    top: 189px;
+    left: 16px;
+    gap: 6px;
+  }
+  .camera-tools button {
+    padding: 9px 11px;
+    min-height: 42px;
+    font-size: 9px;
+  }
+  .consumable-actions {
+    bottom: 172px;
+    max-width: 95%;
+    width: 100%;
+    gap: 5px;
+  }
+  .consumable-actions button {
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 10px;
+  }
+  .action-status {
+    font-size: 10px;
+    max-width: 210px;
+    flex-basis: 100%;
+    margin: 0 auto;
+  }
+  .in-room .toast {
+    bottom: 242px;
+    font-size: 10px;
+  }
+  .sound-settings label {
+    font-size: 11px;
+  }
+  .memo-list {
+    gap: 8px;
+  }
+  .memo-list li {
+    padding: 13px 10px;
+  }
+  .memo-list p {
+    font-size: 11px;
+  }
+}
+@media (max-height: 560px) {
+  .camera-tools {
+    top: 180px;
+    left: 18px;
+  }
+  .consumable-actions {
+    bottom: 24px;
+    max-width: 50%;
+    width: 50%;
+  }
+  .consumable-actions button {
+    padding: 8px 10px;
+    min-height: 42px;
+    font-size: 10px;
+  }
+  .action-status {
+    font-size: 9px;
+    padding: 5px;
+  }
+  .in-room .toast {
+    bottom: 130px;
+  }
+  .top-actions {
+    gap: 6px;
+  }
+}
+@media (max-width: 700px) {
+  .room-tools button,
+  .camera-tools button,
+  .top-actions .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .in-room .toast {
+    bottom: 295px;
+  }
+}

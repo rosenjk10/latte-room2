@@ -1,5 +1,6 @@
 export type Animal = "cat" | "rabbit" | "bear" | "dog";
-export type Drink = "americano" | "latte" | "cappuccino" | "choco";
+export type Drink =
+  "espresso" | "americano" | "latte" | "cappuccino" | "vanilla" | "choco";
 export type Player = {
   id: string;
   name: string;
@@ -10,6 +11,12 @@ export type Player = {
   seat: number | null;
   drink: Drink | null;
   dessert: number | null;
+  drinkLevel?: number;
+  dessertBites?: number;
+  drinkPlaced?: boolean;
+  dessertPlaced?: boolean;
+  action?: "idle" | "brew" | "drink" | "eat";
+  actionAt?: number;
 };
 export type Bubble = {
   id: string;
@@ -44,9 +51,11 @@ export const ANIMALS: {
   { id: "dog", label: "강아지", emoji: "🐶", color: "#e9c49c" },
 ];
 export const DRINKS: { id: Drink; label: string; color: string }[] = [
+  { id: "espresso", label: "에스프레소", color: "#ede2cc" },
   { id: "americano", label: "아메리카노", color: "#dcede4" },
   { id: "latte", label: "라떼", color: "#fff4e6" },
   { id: "cappuccino", label: "카푸치노", color: "#ddd6f4" },
+  { id: "vanilla", label: "바닐라라떼", color: "#f6e4ab" },
   { id: "choco", label: "초코라떼", color: "#f5d9df" },
 ];
 export const DESSERTS = [
@@ -54,7 +63,39 @@ export const DESSERTS = [
   "🍪 초코 쿠키",
   "🧁 컵케이크",
   "🥐 크루아상",
+  "🟣 마카롱",
+  "🍰 치즈케이크",
 ];
+export const ACTION_DURATION = { brew: 2400, drink: 1100, eat: 1000, idle: 0 };
+export function actionProgress(p: Player, now = Date.now()) {
+  const duration = ACTION_DURATION[p.action ?? "idle"];
+  return duration
+    ? Math.max(0, Math.min(1, (now - (p.actionAt ?? 0)) / duration))
+    : 1;
+}
+export function consume(p: Player, kind: "drink" | "eat"): Partial<Player> {
+  if (kind === "drink")
+    return { drinkLevel: Math.max(0, (p.drinkLevel ?? 4) - 1) };
+  const bites = Math.max(0, (p.dessertBites ?? 3) - 1);
+  return {
+    dessertBites: bites,
+    ...(bites === 0 ? { dessert: null, dessertPlaced: false } : {}),
+  };
+}
+export const CAMERA_LIMITS = {
+  minDistance: 10,
+  maxDistance: 26,
+  minPolarAngle: 0.28,
+  maxPolarAngle: 1.02,
+};
+export function cameraIsSafe(distance: number, polar: number) {
+  return (
+    distance >= CAMERA_LIMITS.minDistance &&
+    distance <= CAMERA_LIMITS.maxDistance &&
+    polar >= CAMERA_LIMITS.minPolarAngle &&
+    polar <= CAMERA_LIMITS.maxPolarAngle
+  );
+}
 export const TABLES = [
   [-3, -2.8],
   [0, -2.8],
@@ -131,7 +172,23 @@ export function validPlayer(v: unknown): v is Player {
     (p.seat === null ||
       (Number.isInteger(p.seat) && p.seat >= 0 && p.seat < 12)) &&
     (p.drink === null || DRINKS.some((d) => d.id === p.drink)) &&
+    (p.drinkLevel === undefined ||
+      (Number.isInteger(p.drinkLevel) &&
+        p.drinkLevel >= 0 &&
+        p.drinkLevel <= 4)) &&
+    (p.dessertBites === undefined ||
+      (Number.isInteger(p.dessertBites) &&
+        p.dessertBites >= 0 &&
+        p.dessertBites <= 3)) &&
+    (p.drinkPlaced === undefined || typeof p.drinkPlaced === "boolean") &&
+    (p.dessertPlaced === undefined || typeof p.dessertPlaced === "boolean") &&
+    (p.action === undefined ||
+      ["idle", "brew", "drink", "eat"].includes(p.action)) &&
+    (p.actionAt === undefined ||
+      (Number.isFinite(p.actionAt) && p.actionAt >= 0)) &&
     (p.dessert === null ||
-      (Number.isInteger(p.dessert) && p.dessert >= 0 && p.dessert < 4))
+      (Number.isInteger(p.dessert) &&
+        p.dessert >= 0 &&
+        p.dessert < DESSERTS.length))
   );
 }

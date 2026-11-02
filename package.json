@@ -9,7 +9,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
@@ -20,6 +21,7 @@
     "three": "^0.181.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
     "@playwright/test": "^1.56.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
