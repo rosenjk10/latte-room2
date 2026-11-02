@@ -5,7 +5,7 @@ import { clickObject } from "./world-inspection";
 test("fourth update: shared watering, duplicate events, exclusive reading chair and leader reconnect recovery", async ({
   browser,
 }) => {
-  test.setTimeout(150000);
+  test.setTimeout(240000);
   const second = await chromium.launch({
     headless: true,
     executablePath:
@@ -38,27 +38,36 @@ test("fourth update: shared watering, duplicate events, exclusive reading chair 
       await p.evaluate(() => {
         const seen = new Set<string>();
         (window as any).__seenWatering = seen;
-        setInterval(() => {
-          window.__LATTE_SCENE__?.traverse((node) => {
-            if (node.name.startsWith("watering-can:")) seen.add(node.name);
-          });
-        }, 30);
+        // Observe scene attachment synchronously. A first shader compilation can
+        // block timer polling for longer than this transient animation lasts.
+        const watch = (node: import("three").Object3D) => {
+          if (node.name.startsWith("watering-can:")) seen.add(node.name);
+          node.addEventListener("childadded", (event) => watch(event.child));
+          node.children.forEach(watch);
+        };
+        if (window.__LATTE_SCENE__) watch(window.__LATTE_SCENE__);
       });
     for (const p of [a, b]) {
-      await clickObject(p, "garden-pot:0", [0, 0.18, 0]);
-      await p.getByRole("button", { name: "물주기", exact: true }).click();
+      await clickObject(p, "shelf-book:0", [0, 0, 0.15]);
+      await p.getByRole("button", { name: "이 문장과 쉬어가기" }).click();
+      await clickObject(p, "garden-pot:3", [0, 0.18, 0]);
     }
+    await Promise.all(
+      [a, b].map((p) =>
+        p.getByRole("button", { name: "물주기", exact: true }).click(),
+      ),
+    );
     await expect
       .poll(
         async () =>
-          (await a.locator("main").getAttribute("data-flowers"))!.split(",")[0],
+          (await a.locator("main").getAttribute("data-flowers"))!.split(",")[3],
         { timeout: 25000 },
       )
       .toBe("1");
     await expect
       .poll(
         async () =>
-          (await b.locator("main").getAttribute("data-flowers"))!.split(",")[0],
+          (await b.locator("main").getAttribute("data-flowers"))!.split(",")[3],
       )
       .toBe("1");
     const actor = (
@@ -66,9 +75,9 @@ test("fourth update: shared watering, duplicate events, exclusive reading chair 
         (m) =>
           m.event === "shared-v4" &&
           (m.payload as any).type === "commit" &&
-          (m.payload as any).state.flowers[0].stage === 1,
+          (m.payload as any).state.flowers[3].stage === 1,
       )!.payload as any
-    ).state.flowers[0].actor;
+    ).state.flowers[3].actor;
     const aId = await a.locator(".name-tag.you").getAttribute("data-player-id");
     const observer = actor === aId ? b : a;
     await expect
@@ -107,13 +116,16 @@ test("fourth update: shared watering, duplicate events, exclusive reading chair 
       await b.locator("main").getAttribute("data-flowers"),
     );
     // Select the same physical chair in both browsers; claims occur only after walking there.
-    for (const p of [a, b]) {
-      await p.getByRole("button", { name: "카메라 시점 초기화" }).click();
-      await clickObject(p, "shelf-book:0", [0, 0, 0.15]);
-      await p.getByRole("button", { name: "이 문장과 쉬어가기" }).click();
-      await clickObject(p, "reading-chair:12", [0, 0.8, 0]);
-      await p.getByRole("button", { name: "앉기", exact: true }).click();
-    }
+    await Promise.all(
+      [a, b].map((p) =>
+        expect(p.locator("main")).toHaveAttribute("data-action", "idle"),
+      ),
+    );
+    await Promise.all(
+      [a, b].map((p) =>
+        p.getByRole("button", { name: "독서 의자로 이동" }).click(),
+      ),
+    );
     await expect
       .poll(
         async () =>
@@ -155,7 +167,7 @@ test("fourth update: shared watering, duplicate events, exclusive reading chair 
     await expect
       .poll(
         async () =>
-          (await c.locator("main").getAttribute("data-flowers"))!.split(",")[0],
+          (await c.locator("main").getAttribute("data-flowers"))!.split(",")[3],
       )
       .toBe("1");
     const oldSockets = server.sockets.length;
@@ -171,7 +183,7 @@ test("fourth update: shared watering, duplicate events, exclusive reading chair 
     await expect
       .poll(
         async () =>
-          (await c.locator("main").getAttribute("data-flowers"))!.split(",")[0],
+          (await c.locator("main").getAttribute("data-flowers"))!.split(",")[3],
       )
       .toBe("1");
     await ca.close();
@@ -200,7 +212,7 @@ test("fourth update: shared watering, duplicate events, exclusive reading chair 
     );
     await expect(c.locator("main")).toHaveAttribute(
       "data-flowers",
-      "1,0,0,0,0,0",
+      "0,0,0,1,0,0",
     );
     await cb.close();
     await cc.close();

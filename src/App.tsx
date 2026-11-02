@@ -1,3 +1,4 @@
+import { loadCameraMode, saveCameraMode } from "./camera";
 import { useSharedRoom } from "./useSharedRoom";
 import {
   BOOKS,
@@ -88,7 +89,7 @@ export default function App() {
     animal: "cat",
     x: 0,
     z: 3.4,
-    angle: 0,
+    angle: Math.PI,
     seat: null,
     drink: null,
     dessert: null,
@@ -105,7 +106,7 @@ export default function App() {
     [nearby, setNearby] = useState<Interaction | null>(null),
     [selectedBook, setSelectedBook] = useState<number | null>(null),
     [quote, setQuote] = useState(THOUGHTS[0]),
-    [eye, setEye] = useState(false),
+    [eye, setEye] = useState(() => loadCameraMode() === "first"),
     [pendingInteraction, setPendingInteraction] = useState(false);
   const operation = useRef(0);
   const bloomMessages = useRef(new Set<string>());
@@ -510,7 +511,6 @@ export default function App() {
     setSelectedBook(null);
     setContext(null);
     setNearby(null);
-    setEye(false);
     player.current.reading = false;
     player.current.book = null;
     cancelAction();
@@ -524,7 +524,7 @@ export default function App() {
     p.dessertPlaced = false;
     p.x = 0;
     p.z = 3.4;
-    p.angle = 0;
+    p.angle = Math.PI;
     saveNickname(p.name);
     setSeated(false);
     setBubbles([]);
@@ -791,15 +791,20 @@ export default function App() {
           </div>
           <div className="camera-tools">
             <button
-              aria-label="눈높이 시점 전환"
-              onClick={() => setEye((v) => !v)}
+              aria-label="1인칭 / 3인칭 전환"
+              aria-pressed={eye}
+              onClick={() =>
+                setEye((v) => {
+                  saveCameraMode(v ? "third" : "first");
+                  return !v;
+                })
+              }
             >
-              {eye ? "전체 보기" : "눈높이 시점"}
+              {eye ? "1인칭 → 3인칭" : "3인칭 → 1인칭"}
             </button>
             <button
               aria-label="카메라 시점 초기화"
               onClick={() => {
-                setEye(false);
                 setCameraReset((n) => n + 1);
               }}
             >

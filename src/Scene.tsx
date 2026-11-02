@@ -1,3 +1,4 @@
+import { relativeMovement } from "./camera";
 import { HealingInterior } from "./HealingObjects";
 import { roomLayout, walkable, BOOKS, seatApproach, type Point } from "./world";
 import { findPath } from "./navigation";
@@ -16,6 +17,7 @@ import {
 } from "./CafeObjects";
 import { audio } from "./audio";
 import Animal from "./Avatar";
+import FirstPersonHands from "./FirstPersonHands";
 import SceneInspection from "./SceneInspection";
 import {
   TABLES,
@@ -314,6 +316,8 @@ export type Controls = {
   z: number;
   keys: Set<string>;
   cameraBusy?: boolean;
+  cameraMode?: "first" | "third";
+  viewYaw?: number;
   draggedUntil?: number;
   path?: Point[];
   destination?: Point | null;
@@ -438,7 +442,6 @@ function World({
     if (
       entered &&
       p.seat === null &&
-      !c.cameraBusy &&
       !blocked &&
       !(
         (p.action === "drink" ||
@@ -456,6 +459,9 @@ function World({
         c.z +
         (c.keys.has("s") || c.keys.has("arrowdown") ? 1 : 0) -
         (c.keys.has("w") || c.keys.has("arrowup") ? 1 : 0);
+      const manual = Math.hypot(x, z) > 0.02;
+      if (manual && eye)
+        ({ x, z } = relativeMovement(x, z, c.viewYaw ?? p.angle));
       let length = Math.hypot(x, z);
       if (length > 0.02 && c.destination) {
         c.path = [];
@@ -463,7 +469,7 @@ function World({
         c.arrive = null;
         c.cancelAuto?.();
       }
-      if (length < 0.02 && c.path?.length) {
+      if (length < 0.02 && c.path?.length && !c.cameraBusy) {
         const target = c.path[0],
           dx = target.x - p.x,
           dz = target.z - p.z,
@@ -500,7 +506,7 @@ function World({
           if (walkable({ x: next.x, z: p.z }, room)) p.x = next.x;
           if (walkable({ x: p.x, z: next.z }, room)) p.z = next.z;
         }
-        p.angle = Math.atan2(x, z);
+        p.angle = eye && manual ? (c.viewYaw ?? p.angle) : Math.atan2(x, z);
       }
     }
     if (marker.current) {
@@ -538,7 +544,7 @@ function World({
       +p.z.toFixed(3),
     ]);
     tick();
-  });
+  }, -2);
   return (
     <>
       <color attach="background" args={["#f5efe6"]} />
@@ -624,7 +630,8 @@ function World({
             </group>
           );
         })}
-      <Animal player={player.current} local />
+      <Animal player={player.current} local firstPerson={entered && eye} />
+      <FirstPersonHands player={player} visible={entered && eye} />
       {visibleOthers.map((p) => (
         <Animal key={p.id} player={p} />
       ))}

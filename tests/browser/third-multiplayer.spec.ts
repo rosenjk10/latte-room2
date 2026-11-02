@@ -24,6 +24,9 @@ test("third update: independent browsers display remote gait, attached cups, sip
     const errors: string[] = [];
     [a, b].forEach((p) => p.on("pageerror", (e) => errors.push(e.message)));
     for (const p of [a, b]) {
+      await p.addInitScript(() =>
+        localStorage.setItem("latte:camera-mode", "third"),
+      );
       await p.goto("http://127.0.0.1:5174");
       await p
         .getByRole("textbox", { name: "닉네임", exact: true })
@@ -52,7 +55,13 @@ test("third update: independent browsers display remote gait, attached cups, sip
       .poll(async () => (await avatarPose(b, idA)).walk, { intervals: [100] })
       .toBeGreaterThan(0.4);
     const moving = await avatarPose(b, idA);
-    await b.waitForTimeout(180);
+    await expect
+      .poll(
+        async () =>
+          Math.abs((await avatarPose(b, idA)).legLeft - moving.legLeft),
+        { intervals: [70], timeout: 8000 },
+      )
+      .toBeGreaterThan(0.03);
     const next = await avatarPose(b, idA);
     await a.keyboard.up("a");
     expect(Math.abs(next.legLeft - moving.legLeft)).toBeGreaterThan(0.015);

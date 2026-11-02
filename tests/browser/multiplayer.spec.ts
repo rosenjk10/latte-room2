@@ -1,3 +1,4 @@
+import { inspectionView } from "./world-inspection";
 import { test, expect } from "@playwright/test";
 import * as THREE from "three";
 import { mockRealtime } from "./realtime-fixture";
@@ -8,6 +9,9 @@ test("two real clients: Presence, movement, bubbles, pop, room isolation, reconn
   const context = await browser.newContext({
     viewport: { width: 1100, height: 800 },
   });
+  await context.addInitScript(() =>
+    localStorage.setItem("latte:camera-mode", "third"),
+  );
   const transport = await mockRealtime(context);
   const a = await context.newPage(),
     b = await context.newPage();
@@ -73,12 +77,19 @@ test("two real clients: Presence, movement, bubbles, pop, room isolation, reconn
     transport.metrics.findLast((m) => m.event === "bubbles")!
       .payload as Bubble[]
   )[0];
+  await inspectionView(a, bubblePosition(bubble, Date.now()));
   const camera = new THREE.PerspectiveCamera(45, 1100 / 800, 0.1, 100);
   const cameraPosition = JSON.parse(
     (await a.locator("canvas").getAttribute("data-camera"))!,
   ) as [number, number, number];
   camera.position.fromArray(cameraPosition);
-  camera.lookAt(0, 0.3, -0.6);
+  camera.lookAt(
+    new THREE.Vector3(
+      ...JSON.parse(
+        (await a.locator("canvas").getAttribute("data-camera-target"))!,
+      ),
+    ),
+  );
   camera.updateMatrixWorld();
   for (let attempt = 0; attempt < 4; attempt++) {
     const p = bubblePosition(bubble, Date.now()),
@@ -122,6 +133,9 @@ test("guestbook save, safe text, realtime refresh across rooms, server error, an
   const context = await browser.newContext({
     viewport: { width: 1100, height: 800 },
   });
+  await context.addInitScript(() =>
+    localStorage.setItem("latte:camera-mode", "third"),
+  );
   await mockRealtime(context);
   const a = await context.newPage(),
     b = await context.newPage();

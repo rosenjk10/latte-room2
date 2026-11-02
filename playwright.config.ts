@@ -20,6 +20,7 @@ export default defineConfig({
       name: "local",
       testMatch: [
         "cafe.spec.ts",
+        "camera-follow.spec.ts",
         "third-local.spec.ts",
         "fourth-local.spec.ts",
       ],

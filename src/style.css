@@ -1423,3 +1423,7 @@ button:disabled {
 .wall-sign * {
   pointer-events: none;
 }
+/* Camera gestures belong to the 3D canvas; never pan or zoom the browser viewport. */
+.app canvas {
+  touch-action: none;
+}

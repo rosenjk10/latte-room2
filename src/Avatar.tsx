@@ -25,9 +25,11 @@ function Ball({
 export default function Avatar({
   player,
   local = false,
+  firstPerson = false,
 }: {
   player: Player;
   local?: boolean;
+  firstPerson?: boolean;
 }) {
   const root = useRef<THREE.Group>(null),
     body = useRef<THREE.Group>(null),
@@ -184,9 +186,9 @@ export default function Avatar({
     if (cupTip.current) cupTip.current.rotation.x = -0.75 * pose.lift;
     root.current.userData.walkWeight = pose.walk;
     root.current.userData.blink = pose.blink;
-  });
+  }, -1);
   return (
-    <group ref={root} name={`avatar:${player.id}`}>
+    <group visible={!firstPerson} ref={root} name={`avatar:${player.id}`}>
       <group ref={body} name={`body:${player.id}`}>
         <Ball
           position={[0, 0.45, 0]}
@@ -399,12 +401,7 @@ export default function Avatar({
           </group>
         </group>
       </group>
-      <Html
-        position={[0, 1.75, 0]}
-        center
-        distanceFactor={9}
-        style={{ pointerEvents: "none" }}
-      >
+      <Html position={[0, 1.75, 0]} center style={{ pointerEvents: "none" }}>
         <div
           data-player-id={player.id}
           data-x={player.x.toFixed(3)}

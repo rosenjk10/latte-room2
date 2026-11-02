@@ -43,6 +43,9 @@ test("third update: saved random nickname, sequential real audio, filling cup, p
       }
     };
   });
+  await page.addInitScript(() =>
+    localStorage.setItem("latte:camera-mode", "third"),
+  );
   await page.goto("/");
   const generated = await page
     .getByRole("textbox", { name: "닉네임", exact: true })

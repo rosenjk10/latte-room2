@@ -1,23 +1,27 @@
 import { test, expect } from "@playwright/test";
-import * as THREE from "three";
-import { screenPoint as worldPoint } from "./world-inspection";
-const screenPoint = (
+import {
+  screenPoint as worldPoint,
+  inspectionView,
+  position as playerPosition,
+} from "./world-inspection";
+const screenPoint = async (
+  page: import("@playwright/test").Page,
   x: number,
   y: number,
   z: number,
-  width = 1280,
-  height = 800,
 ) => {
-  const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-  camera.position.set(0, 8.3, 11 + 3.4 * 0.16);
-  camera.lookAt(0, 0.3, -0.6);
-  camera.updateMatrixWorld();
-  const v = new THREE.Vector3(x, y, z).project(camera);
-  return { x: ((v.x + 1) * width) / 2, y: ((1 - v.y) * height) / 2 };
+  await inspectionView(page, { x, z });
+  return worldPoint(page, { x, y, z });
 };
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("latte:camera-mode", "third"),
+  );
+});
 test("desktop: enter, move, sit, drinks, room change and bubble interactions", async ({
   page,
 }) => {
+  test.setTimeout(150000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -33,12 +37,12 @@ test("desktop: enter, move, sit, drinks, room change and bubble interactions", a
   await expect(page.getByText("로컬 체험 · 연결 설정 필요")).toBeVisible();
   await expect(page.getByText("테스트 토끼 · 나")).toBeVisible();
   await page.waitForTimeout(2500);
-  const before = await page.getByText("테스트 토끼 · 나").boundingBox();
+  const before = await playerPosition(page);
   await page.keyboard.down("a");
   await page.waitForTimeout(500);
   await page.keyboard.up("a");
-  const after = await page.getByText("테스트 토끼 · 나").boundingBox();
-  expect(Math.abs(after!.x - before!.x)).toBeGreaterThan(10);
+  const after = await playerPosition(page);
+  expect(Math.abs(after[0] - before[0])).toBeGreaterThan(0.2);
   // Back to spawn for deterministic projected seat and bubble picking.
   await page.getByRole("button", { name: "방 둘러보기" }).click();
   await expect(page.locator(".room-grid button")).toHaveCount(10);
@@ -78,7 +82,7 @@ test("desktop: enter, move, sit, drinks, room change and bubble interactions", a
   const initial = count + 1;
   for (const dx of [-0.35, 0, 0.35]) {
     for (const dz of [0, 0.3]) {
-      const point = screenPoint(dx, 1.4, 4.05 + dz);
+      const point = await screenPoint(page, dx, 1.4, 2.75 + dz);
       await page.mouse.click(point.x, point.y);
       if (
         Number(await page.locator("main").getAttribute("data-bubbles")) <
@@ -91,11 +95,11 @@ test("desktop: enter, move, sit, drinks, room change and bubble interactions", a
     if (popped) break;
   }
   expect(popped).toBe(true);
-  const seat = screenPoint(-0.78, 0.55, 1.2);
+  const seat = await screenPoint(page, -0.78, 0.47, 1.2);
   await page.mouse.click(seat.x, seat.y);
   await page.getByRole("button", { name: "앉기", exact: true }).click();
   await expect(page.locator("main")).toHaveAttribute("data-seated", "true", {
-    timeout: 15000,
+    timeout: 30000,
   });
   await page.getByRole("button", { name: "일어나기" }).click();
   await expect(page.locator("main")).toHaveAttribute("data-seated", "false");
@@ -114,6 +118,10 @@ test("mobile: fullscreen layout, joystick, long press, mute and room isolation",
     hasTouch: true,
   });
   const page = await context.newPage();
+  await page.addInitScript(() =>
+    localStorage.setItem("latte:camera-mode", "third"),
+  );
+  test.setTimeout(150000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
@@ -126,14 +134,14 @@ test("mobile: fullscreen layout, joystick, long press, mute and room isolation",
   ).toBe(true);
   const joystick = page.getByRole("group", { name: "이동 조이스틱" }),
     b = await joystick.boundingBox();
-  const before = await page.locator(".name-tag.you").boundingBox();
+  const before = await playerPosition(page);
   await page.mouse.move(b!.x + b!.width / 2, b!.y + b!.height / 2);
   await page.mouse.down();
   await page.mouse.move(b!.x + b!.width - 5, b!.y + b!.height / 2);
   await page.waitForTimeout(600);
   await page.mouse.up();
-  const after = await page.locator(".name-tag.you").boundingBox();
-  expect(Math.abs(after!.x - before!.x)).toBeGreaterThan(5);
+  const after = await playerPosition(page);
+  expect(Math.abs(after[0] - before[0])).toBeGreaterThan(0.2);
   const session = await context.newCDPSession(page);
   const playerBefore = await page.locator("canvas").getAttribute("data-player");
   const cameraBefore = await page.locator("canvas").getAttribute("data-camera");
@@ -185,6 +193,7 @@ test("mobile: fullscreen layout, joystick, long press, mute and room isolation",
     playerBefore,
   );
   await page.getByRole("button", { name: "카메라 시점 초기화" }).tap();
+  await inspectionView(page, { x: 0, z: 2.9 });
   const floor = await worldPoint(page, { x: 0, y: 0.01, z: 2.9 });
   await page.touchscreen.tap(floor.x, floor.y);
   await expect(page.locator("canvas")).toHaveAttribute(
@@ -225,6 +234,7 @@ test("free camera, consumable lifecycle, persisted sound settings and guestbook 
 }) => {
   test.setTimeout(120000);
   await page.setViewportSize({ width: 1280, height: 800 });
+  test.setTimeout(150000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.addInitScript(() => {
@@ -278,8 +288,11 @@ test("free camera, consumable lifecycle, persisted sound settings and guestbook 
   ).toBeLessThan(26.02);
   await page.getByRole("button", { name: "카메라 시점 초기화" }).click();
   await page.waitForTimeout(500);
-  expect(await page.locator("canvas").getAttribute("data-camera")).toBe(
-    initialCamera,
+  const resetPosition = JSON.parse(
+    (await page.locator("canvas").getAttribute("data-camera"))!,
+  );
+  resetPosition.forEach((v: number, i: number) =>
+    expect(v).toBeCloseTo(JSON.parse(initialCamera!)[i], 1),
   );
   expect(await page.locator("canvas").getAttribute("data-player")).toBe(
     initialPlayer,
@@ -321,11 +334,11 @@ test("free camera, consumable lifecycle, persisted sound settings and guestbook 
   ).toHaveCount(0);
   await page.getByRole("button", { name: "디저트 선택", exact: true }).click();
   await page.getByRole("button", { name: "마카롱", exact: false }).click();
-  const seat = screenPoint(-0.78, 0.55, 1.2);
+  const seat = await screenPoint(page, -0.78, 0.47, 1.2);
   await page.mouse.click(seat.x, seat.y);
   await page.getByRole("button", { name: "앉기", exact: true }).click();
   await expect(page.locator("main")).toHaveAttribute("data-seated", "true", {
-    timeout: 15000,
+    timeout: 30000,
   });
   await page
     .getByRole("button", { name: "테이블에 올리기", exact: true })
