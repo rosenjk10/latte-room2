@@ -67,8 +67,6 @@ export async function inspectionView(
   point?: { x: number; z: number },
 ) {
   const canvas = page.locator("canvas");
-  if ((await canvas.getAttribute("data-camera-mode")) === "first")
-    await page.getByRole("button", { name: "1인칭 / 3인칭 전환" }).click();
   await page.waitForFunction(
     () => document.querySelector("canvas")?.dataset.cameraMode === "third",
   );

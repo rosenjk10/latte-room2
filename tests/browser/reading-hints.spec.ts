@@ -112,6 +112,16 @@ test("mobile: always-available reading, shelf touch, book choice, quote and real
       })
       .toBeGreaterThan(pageSounds);
 
+    await expect(
+      page.getByRole("complementary", { name: "가까운 상호작용" }),
+    ).toHaveCount(0);
+    const actions = await page.locator(".consumable-actions").boundingBox();
+    expect(actions!.y).toBeGreaterThan(844 * 0.7);
+    const toast = (await page.locator(".toast").count())
+      ? await page.locator(".toast").boundingBox()
+      : null;
+    if (toast) expect(toast.y + toast.height).toBeLessThan(844 * 0.25);
+    await page.screenshot({ path: "test-results/mobile-reading-action.png" });
     await page.getByRole("button", { name: "책 덮기", exact: true }).tap();
     await expect(page.locator("main")).toHaveAttribute("data-reading", "false");
     await page.getByRole("button", { name: "일어나기", exact: false }).tap();

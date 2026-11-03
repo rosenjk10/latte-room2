@@ -20,7 +20,7 @@ export default defineConfig({
       name: "local",
       testMatch: [
         "cafe.spec.ts",
-        "camera-follow.spec.ts",
+        "action-visibility.spec.ts",
         "third-person-follow.spec.ts",
         "reading-hints.spec.ts",
         "third-local.spec.ts",

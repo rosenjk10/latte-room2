@@ -1,4 +1,3 @@
-import { relativeMovement } from "./camera";
 import { HealingInterior } from "./HealingObjects";
 import { roomLayout, walkable, BOOKS, seatApproach, type Point } from "./world";
 import { findPath } from "./navigation";
@@ -17,7 +16,6 @@ import {
 } from "./CafeObjects";
 import { audio } from "./audio";
 import Animal from "./Avatar";
-import FirstPersonHands from "./FirstPersonHands";
 import SceneInspection from "./SceneInspection";
 import {
   TABLES,
@@ -103,20 +101,20 @@ const Cafe = memo(function Cafe({
         />
       ))}
       <Box position={[0, 2, -5.2]} size={[12, 4.4, 0.2]} color={accent} />
-      <Box position={[-5.8, 2, 0]} size={[0.2, 4.4, 10.5]} color="#fff4e6" />
+      <Box position={[-5.8, 2, 0]} size={[0.2, 4.4, 10.5]} color="#fff0d5" />
       {[-3.5, 0, 3.5].map((x) => (
         <group key={x} position={[x, 2.35, -5.06]}>
-          <Box position={[0, 0, 0]} size={[2.4, 2.2, 0.1]} color="#fff4e6" />
+          <Box position={[0, 0, 0]} size={[2.4, 2.2, 0.1]} color="#fff0d5" />
           <Box
             position={[0, 0, 0.065]}
             size={[2.15, 1.96, 0.05]}
             color="#bdd9dc"
           />
-          <Box position={[0, 0, 0.11]} size={[0.07, 2, 0.05]} color="#fff4e6" />
+          <Box position={[0, 0, 0.11]} size={[0.07, 2, 0.05]} color="#fff0d5" />
           <Box
             position={[0, 0, 0.12]}
             size={[2.2, 0.07, 0.05]}
-            color="#fff4e6"
+            color="#fff0d5"
           />
           <Ball
             position={[0.65, 0.5, 0.11]}
@@ -158,7 +156,7 @@ const Cafe = memo(function Cafe({
           </mesh>
           <mesh position={[0, 1.01, 0]}>
             <cylinderGeometry args={[0.07, 0.06, 0.2, 12]} />
-            <meshStandardMaterial color="#ddd6f4" />
+            <meshStandardMaterial color="#cdbff0" />
           </mesh>
           <Ball
             position={[0, 1.16, 0]}
@@ -181,12 +179,12 @@ const Cafe = memo(function Cafe({
           <Box
             position={[0, 0.47, 0]}
             size={[0.53, 0.12, 0.5]}
-            color={i % 3 === 0 ? "#f5d9df" : "#dcede4"}
+            color={i % 3 === 0 ? "#f0c1d0" : "#c8e7d6"}
           />
           <Box
             position={[0, 0.75, -0.22]}
             size={[0.53, 0.5, 0.09]}
-            color={i % 3 === 0 ? "#f5d9df" : "#dcede4"}
+            color={i % 3 === 0 ? "#f0c1d0" : "#c8e7d6"}
           />
           {[-0.19, 0.19].flatMap((x) =>
             [-0.17, 0.17].map((z) => (
@@ -304,7 +302,7 @@ function Sparkles({ burst }: { burst: Burst }) {
       {Array.from({ length: 8 }, (_, i) => (
         <mesh key={i} geometry={sphere}>
           <meshBasicMaterial
-            color={["#fff4c0", "#f5d9df", "#ddd6f4", "#dcede4"][i % 4]}
+            color={["#fff4c0", "#f0c1d0", "#cdbff0", "#c8e7d6"][i % 4]}
           />
         </mesh>
       ))}
@@ -316,8 +314,6 @@ export type Controls = {
   z: number;
   keys: Set<string>;
   cameraBusy?: boolean;
-  cameraMode?: "first" | "third";
-  viewYaw?: number;
   draggedUntil?: number;
   path?: Point[];
   destination?: Point | null;
@@ -340,7 +336,6 @@ function World({
   brewDrink,
   blocked,
   room,
-  eye,
   shared,
   sharedReady,
   onBook,
@@ -363,7 +358,6 @@ function World({
   brewDrink: import("./model").Drink;
   blocked: boolean;
   room: number;
-  eye: boolean;
   shared: SharedState;
   sharedReady: boolean;
   onBook: (i: number) => void;
@@ -459,9 +453,6 @@ function World({
         c.z +
         (c.keys.has("s") || c.keys.has("arrowdown") ? 1 : 0) -
         (c.keys.has("w") || c.keys.has("arrowup") ? 1 : 0);
-      const manual = Math.hypot(x, z) > 0.02;
-      if (manual && eye)
-        ({ x, z } = relativeMovement(x, z, c.viewYaw ?? p.angle));
       let length = Math.hypot(x, z);
       if (length > 0.02 && c.destination) {
         c.path = [];
@@ -506,7 +497,7 @@ function World({
           if (walkable({ x: next.x, z: p.z }, room)) p.x = next.x;
           if (walkable({ x: p.x, z: next.z }, room)) p.z = next.z;
         }
-        p.angle = eye && manual ? (c.viewYaw ?? p.angle) : Math.atan2(x, z);
+        p.angle = Math.atan2(x, z);
       }
     }
     if (marker.current) {
@@ -550,7 +541,7 @@ function World({
       <color attach="background" args={["#f5efe6"]} />
       <fog attach="fog" args={["#f5efe6", 18, 32]} />
       <ambientLight intensity={0.9} />
-      <hemisphereLight args={["#fff4e6", "#dcede4", 0.8]} />
+      <hemisphereLight args={["#fff0d5", "#c8e7d6", 0.8]} />
       <directionalLight position={[3, 8, 2]} intensity={2.5} color="#ffedcf" />
       <SceneInspection />
       <CameraRig
@@ -559,7 +550,6 @@ function World({
         controls={controls}
         room={room}
         player={player}
-        eye={eye}
       />
       <mesh
         name="walk-floor"
@@ -630,8 +620,7 @@ function World({
             </group>
           );
         })}
-      <Animal player={player.current} local firstPerson={entered && eye} />
-      <FirstPersonHands player={player} visible={entered && eye} />
+      <Animal player={player.current} local />
       {visibleOthers.map((p) => (
         <Animal key={p.id} player={p} />
       ))}

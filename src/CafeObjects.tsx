@@ -526,7 +526,7 @@ export function CorkBoard({ onClick }: { onClick: () => void }) {
             <Block
               p={[0, 0, 0]}
               s={[0.4, 0.35, 0.012]}
-              color={["#f5d9df", "#dcede4", "#ddd6f4"][(i + j) % 3]}
+              color={["#f0c1d0", "#c8e7d6", "#cdbff0"][(i + j) % 3]}
             />
             <Oval
               p={[0, 0.13, 0.02]}

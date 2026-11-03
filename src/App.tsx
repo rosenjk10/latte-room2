@@ -1,5 +1,5 @@
 import { useInteractionHints } from "./useInteractionHints";
-import { loadCameraMode, saveCameraMode } from "./camera";
+import { loadCameraMode } from "./camera";
 import { useSharedRoom } from "./useSharedRoom";
 import {
   BOOKS,
@@ -101,13 +101,15 @@ export default function App() {
     drinkPlaced: false,
     dessertPlaced: false,
   });
+  useEffect(() => {
+    loadCameraMode();
+  }, []);
   const controls = useRef<Controls>({ x: 0, z: 0, keys: new Set(), path: [] });
   const garden = useSharedRoom(room, player.current.id, configured, player);
   const [context, setContext] = useState<Interaction | null>(null),
     [nearby, setNearby] = useState<Interaction | null>(null),
     [selectedBook, setSelectedBook] = useState<number | null>(null),
     [quote, setQuote] = useState(THOUGHTS[0]),
-    [eye, setEye] = useState(() => loadCameraMode() === "first"),
     [pendingInteraction, setPendingInteraction] = useState(false);
   const operation = useRef(0);
   const bloomMessages = useRef(new Set<string>());
@@ -675,7 +677,6 @@ export default function App() {
           brewDrink={selectedDrink}
           blocked={panel !== null || pendingInteraction}
           room={room ?? 1}
-          eye={eye}
           shared={garden.state}
           sharedReady={garden.ready}
           onBook={openBook}
@@ -828,18 +829,6 @@ export default function App() {
           </div>
           <div className="camera-tools">
             <button
-              aria-label="1인칭 / 3인칭 전환"
-              aria-pressed={eye}
-              onClick={() =>
-                setEye((v) => {
-                  saveCameraMode(v ? "third" : "first");
-                  return !v;
-                })
-              }
-            >
-              {eye ? "1인칭 → 3인칭" : "3인칭 → 1인칭"}
-            </button>
-            <button
               aria-label="카메라 시점 초기화"
               onClick={() => {
                 setCameraReset((n) => n + 1);
@@ -854,26 +843,30 @@ export default function App() {
               ✎ 방명록
             </button>
           </div>
-          {interactionTarget && !panel && !seated && (
-            <InteractionPanel
-              target={interactionTarget}
-              state={garden.state}
-              ready={garden.ready}
-              busy={busy || pendingInteraction}
-              selectedBook={selectedBook}
-              onClose={() => {
-                hints.dismiss(interactionTarget);
-                setContext(null);
-              }}
-              onAct={() => {
-                const target = interactionTarget;
-                setContext(target);
-                if (target.kind === "book") openBook(target.id);
-                else if (target.kind === "chair") goSit(target.id);
-                else waterPot(target.id);
-              }}
-            />
-          )}
+          {interactionTarget &&
+            !panel &&
+            !seated &&
+            !busy &&
+            !pendingInteraction && (
+              <InteractionPanel
+                target={interactionTarget}
+                state={garden.state}
+                ready={garden.ready}
+                busy={busy || pendingInteraction}
+                selectedBook={selectedBook}
+                onClose={() => {
+                  hints.dismiss(interactionTarget);
+                  setContext(null);
+                }}
+                onAct={() => {
+                  const target = interactionTarget;
+                  setContext(target);
+                  if (target.kind === "book") openBook(target.id);
+                  else if (target.kind === "chair") goSit(target.id);
+                  else waterPot(target.id);
+                }}
+              />
+            )}
           <div className="consumable-actions">
             {selectedBook === null && !busy && !panel && (
               <button

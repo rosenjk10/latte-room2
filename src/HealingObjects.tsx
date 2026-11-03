@@ -50,12 +50,12 @@ export function OpenBook({
       <Box
         p={[-0.105, 0, 0]}
         s={[0.21, 0.02, 0.27]}
-        color={BOOKS[book]?.color ?? "#dcede4"}
+        color={BOOKS[book]?.color ?? "#c8e7d6"}
       />
       <Box
         p={[0.105, 0, 0]}
         s={[0.21, 0.02, 0.27]}
-        color={BOOKS[book]?.color ?? "#dcede4"}
+        color={BOOKS[book]?.color ?? "#c8e7d6"}
       />
       <Box p={[-0.1, 0.015, 0]} s={[0.185, 0.018, 0.245]} color="#fff7e5" />
       <Box p={[0.1, 0.015, 0]} s={[0.185, 0.018, 0.245]} color="#fff7e5" />
@@ -154,7 +154,7 @@ function GrowingPot({
       <mesh position={[0, 0.18, 0]}>
         <cylinderGeometry args={[0.23, 0.17, 0.36, 12]} />
         <meshStandardMaterial
-          color={["#dcb7a5", "#ddd6f4", "#cadcce"][index % 3]}
+          color={["#dcb7a5", "#cdbff0", "#cadcce"][index % 3]}
         />
       </mesh>
       <mesh position={[0, 0.365, 0]}>
@@ -368,7 +368,7 @@ export const HealingInterior = memo(function HealingInterior({
                 color={l.accent}
               />
             ))}
-            <Box p={[0, 0.8, -0.2]} s={[0.5, 0.4, 0.15]} color="#fff4e6" />
+            <Box p={[0, 0.8, -0.2]} s={[0.5, 0.4, 0.15]} color="#fff0d5" />
             {[-1, 1].flatMap((x) =>
               [-1, 1].map((z) => (
                 <Box
@@ -431,7 +431,7 @@ export const HealingInterior = memo(function HealingInterior({
           <Box
             p={[0, 0, 0.05]}
             s={[0.54, 0.74, 0.02]}
-            color={i ? "#ddd6f4" : "#f5d9df"}
+            color={i ? "#cdbff0" : "#f0c1d0"}
           />
           <mesh
             position={[0, 0.04, 0.08]}

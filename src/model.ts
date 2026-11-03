@@ -60,11 +60,11 @@ export const ANIMALS: {
 ];
 export const DRINKS: { id: Drink; label: string; color: string }[] = [
   { id: "espresso", label: "에스프레소", color: "#ede2cc" },
-  { id: "americano", label: "아메리카노", color: "#dcede4" },
-  { id: "latte", label: "라떼", color: "#fff4e6" },
-  { id: "cappuccino", label: "카푸치노", color: "#ddd6f4" },
+  { id: "americano", label: "아메리카노", color: "#c8e7d6" },
+  { id: "latte", label: "라떼", color: "#fff0d5" },
+  { id: "cappuccino", label: "카푸치노", color: "#cdbff0" },
   { id: "vanilla", label: "바닐라라떼", color: "#f6e4ab" },
-  { id: "choco", label: "초코라떼", color: "#f5d9df" },
+  { id: "choco", label: "초코라떼", color: "#f0c1d0" },
 ];
 export const DESSERTS = [
   "🍰 딸기 케이크",

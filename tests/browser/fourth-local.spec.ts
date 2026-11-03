@@ -52,7 +52,7 @@ test("fourth update: floor routing, manual cancellation, low camera, original bo
   await page.waitForTimeout(150);
   await page.keyboard.up("a");
   await expect(page.locator("canvas")).toHaveAttribute("data-destination", "");
-  await page.getByRole("button", { name: "1인칭 / 3인칭 전환" }).click();
+  await page.getByRole("button", { name: "카메라 시점 초기화" }).click();
   await expect
     .poll(
       async () =>

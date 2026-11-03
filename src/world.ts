@@ -23,9 +23,9 @@ export const CHAIR_POSITIONS = TABLE_POSITIONS.flatMap(([x, z]) => [
   { x: 4.45, z: 0.1, angle: -Math.PI / 2 },
 ]);
 export const BOOKS = [
-  { title: "느린 오후", color: "#dcede4" },
-  { title: "작은 쉼표", color: "#f5d9df" },
-  { title: "구름의 자리", color: "#ddd6f4" },
+  { title: "느린 오후", color: "#c8e7d6" },
+  { title: "작은 쉼표", color: "#f0c1d0" },
+  { title: "구름의 자리", color: "#cdbff0" },
   { title: "다정한 온도", color: "#f2dfb8" },
   { title: "나만의 속도", color: "#cddde5" },
   { title: "오늘의 정원", color: "#e7c9b3" },
@@ -44,7 +44,7 @@ export const THOUGHTS = [
 export function roomLayout(room: number) {
   const flip = room % 2 === 0;
   return {
-    accent: ["#dcede4", "#fff4e6", "#f5d9df", "#ddd6f4"][(room - 1) % 4],
+    accent: ["#c8e7d6", "#fff0d5", "#f0c1d0", "#cdbff0"][(room - 1) % 4],
     shelf: { x: flip ? 4.9 : -4.9, z: -1.35 },
     pots: [
       { x: -4.8, z: -4.35 },

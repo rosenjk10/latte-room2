@@ -571,7 +571,7 @@ button:active {
 .webgl-error {
   display: grid;
   place-content: center;
-  background: #dcede4;
+  background: #c8e7d6;
   text-align: center;
   font-size: 14px;
   line-height: 2;
@@ -1483,5 +1483,121 @@ button:disabled {
     transform: none;
     width: calc(100% - 146px);
     max-width: calc(100% - 146px);
+  }
+}
+/* Keep the character's hands and face clear: context beside the scene, notices above it. */
+.interaction-panel {
+  left: 24px;
+  bottom: 120px;
+  transform: none;
+  min-width: 220px;
+  width: 250px;
+  max-width: calc(100% - 48px);
+  padding: 14px;
+  box-shadow: 0 6px 22px #64533e12;
+}
+.interaction-close {
+  width: 44px;
+  height: 44px;
+}
+.interaction-panel strong {
+  padding-right: 36px;
+}
+.in-room .toast {
+  top: 24px;
+  bottom: auto;
+  left: 50%;
+  padding: 8px 14px;
+  max-width: 44%;
+  font-size: 11px;
+  border-radius: 12px;
+  z-index: 8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .interaction-panel {
+    left: 12px;
+    right: 12px;
+    bottom: max(156px, calc(env(safe-area-inset-bottom) + 140px));
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 44px 10px 12px;
+    min-height: 64px;
+  }
+  .interaction-panel strong {
+    padding-right: 0;
+    font-size: 11px;
+  }
+  .interaction-panel small {
+    display: none;
+  }
+  .interaction-panel .primary {
+    width: auto;
+    max-width: 142px;
+    min-height: 44px;
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+  .interaction-panel .interaction-close {
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .consumable-actions {
+    left: 124px;
+    bottom: max(22px, env(safe-area-inset-bottom));
+    width: calc(100% - 248px);
+    max-width: calc(100% - 248px);
+    padding: 4px 0;
+  }
+  .consumable-actions button {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .consumable-actions .action-status {
+    font-size: 10px;
+    padding: 7px;
+  }
+  .in-room .bottom-hint {
+    display: none;
+  }
+  .in-room .toast {
+    top: 66px;
+    left: 16px;
+    right: 16px;
+    transform: none;
+    max-width: none;
+    width: auto;
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+}
+@media (max-width: 700px) {
+  .consumable-actions {
+    left: 136px;
+    width: calc(100% - 272px);
+    max-width: calc(100% - 272px);
+    min-width: 0;
+  }
+  .consumable-actions .reading-action {
+    min-width: 0;
+    width: 100%;
+  }
+}
+@media (min-width: 701px) {
+  .interaction-panel {
+    bottom: 176px;
+  }
+}
+@media (max-width: 700px) {
+  .consumable-actions button {
+    padding: 8px 6px;
   }
 }

@@ -1,14 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
 import { position, screenPoint, clickWorld } from "./world-inspection";
 async function snapshot(page: Page) {
-  return page
-    .locator("canvas")
-    .evaluate((c) => ({
-      position: JSON.parse(c.dataset.player!),
-      camera: JSON.parse(c.dataset.camera!),
-      view: JSON.parse(c.dataset.view!),
-      mode: c.dataset.cameraMode,
-    }));
+  return page.locator("canvas").evaluate((c) => ({
+    position: JSON.parse(c.dataset.player!),
+    camera: JSON.parse(c.dataset.camera!),
+    view: JSON.parse(c.dataset.view!),
+    mode: c.dataset.cameraMode,
+  }));
 }
 async function visibleAvatar(page: Page) {
   expect(
@@ -44,6 +42,9 @@ test("default third-person PC: legacy preference migration, continuous tracking,
     "data-camera-mode",
     "third",
   );
+  await expect(
+    page.getByRole("button", { name: "1인칭 / 3인칭 전환" }),
+  ).toHaveCount(0);
   await page.waitForTimeout(400);
   const initial = await snapshot(page);
   expect(initial.camera[1]).toBeLessThan(2);
