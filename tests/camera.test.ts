@@ -1,7 +1,29 @@
-import { describe, it, expect } from "vitest";
-import { relativeMovement, viewDirection, PITCH_LIMIT } from "../src/camera";
+import { describe, it, expect, vi } from "vitest";
+import {
+  relativeMovement,
+  viewDirection,
+  PITCH_LIMIT,
+  loadCameraMode,
+  saveCameraMode,
+} from "../src/camera";
 import { cameraPosition } from "../src/world";
 describe("character camera", () => {
+  it("starts in third person even with a saved legacy first-person preference", () => {
+    const storage = new Map([["latte:camera-mode", "first"]]);
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => storage.get(key),
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    });
+    try {
+      expect(loadCameraMode()).toBe("third");
+      expect(storage.get("latte:camera-mode")).toBe("third");
+      saveCameraMode("first");
+      expect(loadCameraMode()).toBe("third");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("maps forward, backward and strafing to the viewing direction", () => {
     for (const yaw of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
       const forward = relativeMovement(0, -1, yaw),

@@ -4,7 +4,12 @@ import { Vector3, Quaternion } from "three";
 import { cameraPosition } from "./world";
 import type { Player } from "./model";
 import type { Controls } from "./Scene";
-import { PITCH_LIMIT, THIRD_DISTANCE, viewDirection } from "./camera";
+import {
+  PITCH_LIMIT,
+  THIRD_DISTANCE,
+  THIRD_PITCH,
+  viewDirection,
+} from "./camera";
 
 /** Character-anchored cameras. View yaw is independent of avatar steering. */
 export default function CameraRig({
@@ -33,17 +38,19 @@ export default function CameraRig({
   const targetRotation = useRef(new Quaternion());
   const eyeHeading = useRef(player.current.angle);
   const anchor = useRef(new Vector3());
+  const previousAnchor = useRef(new Vector3());
   const desired = useRef(new Vector3()),
     direction = useRef(new Vector3()),
     look = useRef(new Vector3());
   const initialized = useRef(false);
   useEffect(() => {
     view.current.yaw = player.current.angle;
-    view.current.pitch = eye ? 0 : -0.13;
+    view.current.pitch = eye ? 0 : THIRD_PITCH.initial;
     view.current.distance = THIRD_DISTANCE.initial;
     transition.current = 0.3;
   }, [entered, reset, room]);
   useEffect(() => {
+    if (!eye) view.current.pitch = THIRD_PITCH.initial;
     transition.current = 0.3;
   }, [eye]);
   useEffect(() => {
@@ -93,8 +100,11 @@ export default function CameraRig({
       if (points.size === 1) {
         view.current.yaw -= dx * 0.006;
         view.current.pitch = Math.max(
-          -PITCH_LIMIT,
-          Math.min(PITCH_LIMIT, view.current.pitch + dy * 0.006),
+          eye ? -PITCH_LIMIT : THIRD_PITCH.min,
+          Math.min(
+            eye ? PITCH_LIMIT : THIRD_PITCH.max,
+            view.current.pitch + dy * 0.006,
+          ),
         );
       } else if (before > 0) zoom(before / Math.max(1, span()));
     };
@@ -164,6 +174,13 @@ export default function CameraRig({
     const facing = eyeHeading.current,
       height = 0.93 + (p.seat === null ? 0 : 0.39);
     anchor.current.set(p.x, height, p.z);
+    // Carry the existing camera with the avatar before easing the orbit offset.
+    // Tracking translation must not lag behind or accumulate as the player walks.
+    if (!eye && initialized.current && transition.current === 0) {
+      camera.position.x += anchor.current.x - previousAnchor.current.x;
+      camera.position.z += anchor.current.z - previousAnchor.current.z;
+    }
+    previousAnchor.current.copy(anchor.current);
     const d = viewDirection(v.yaw, v.pitch);
     direction.current.set(d.x, d.y, d.z);
     if (eye) {
@@ -202,12 +219,7 @@ export default function CameraRig({
     const safe = cameraPosition(anchor.current, camera.position, room);
     camera.position.set(safe.x, safe.y, safe.z);
     look.current.copy(camera.position).add(direction.current);
-    if (!eye)
-      look.current
-        .copy(anchor.current)
-        .sub(desired.current)
-        .normalize()
-        .add(camera.position);
+    if (!eye) look.current.copy(anchor.current);
     previousRotation.current.copy(camera.quaternion);
     camera.lookAt(look.current);
     targetRotation.current.copy(camera.quaternion);

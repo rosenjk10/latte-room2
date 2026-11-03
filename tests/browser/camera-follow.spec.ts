@@ -46,6 +46,11 @@ test("PC: real eye tracking, relative movement, floor/ceiling, auto walk, cup an
   await page.getByRole("button", { name: "입장하기" }).click();
   await expect(page.locator("canvas")).toHaveAttribute(
     "data-camera-mode",
+    "third",
+  );
+  await page.getByRole("button", { name: "1인칭 / 3인칭 전환" }).click();
+  await expect(page.locator("canvas")).toHaveAttribute(
+    "data-camera-mode",
     "first",
   );
   await page.waitForTimeout(500);
@@ -185,6 +190,11 @@ test("mobile: drag gaze, joystick eye tracking, pinch third-person zoom and tap 
   const page = await context.newPage();
   await page.goto("/");
   await page.getByRole("button", { name: "입장하기" }).click();
+  await expect(page.locator("canvas")).toHaveAttribute(
+    "data-camera-mode",
+    "third",
+  );
+  await page.getByRole("button", { name: "1인칭 / 3인칭 전환" }).click();
   await expect(page.locator("canvas")).toHaveAttribute(
     "data-camera-mode",
     "first",

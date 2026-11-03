@@ -69,6 +69,9 @@ export async function inspectionView(
   const canvas = page.locator("canvas");
   if ((await canvas.getAttribute("data-camera-mode")) === "first")
     await page.getByRole("button", { name: "1인칭 / 3인칭 전환" }).click();
+  await page.waitForFunction(
+    () => document.querySelector("canvas")?.dataset.cameraMode === "third",
+  );
   const view = JSON.parse((await canvas.getAttribute("data-view"))!);
   const player = JSON.parse((await canvas.getAttribute("data-player"))!);
   const yaw = point
