@@ -1427,3 +1427,61 @@ button:disabled {
 .app canvas {
   touch-action: none;
 }
+/* Reserve separate bottom rows for contextual menus and reading/consumption actions. */
+.interaction-panel {
+  bottom: max(230px, calc(env(safe-area-inset-bottom) + 210px));
+}
+.consumable-actions {
+  z-index: 6;
+}
+.reading-action {
+  min-width: 110px;
+  min-height: 48px;
+}
+.book-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.book-choices button {
+  min-height: 48px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  font-size: 12px;
+  padding: 8px;
+}
+.book-choices button[aria-pressed="true"] {
+  border-color: #7c9e87;
+}
+@media (max-width: 700px) {
+  .interaction-panel {
+    bottom: max(242px, calc(env(safe-area-inset-bottom) + 222px));
+    max-width: calc(100% - 32px);
+  }
+  .consumable-actions {
+    bottom: max(154px, calc(env(safe-area-inset-bottom) + 134px));
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    max-width: calc(100% - 24px);
+    padding: 6px;
+  }
+  .consumable-actions button {
+    flex: 0 0 auto;
+    min-height: 48px;
+  }
+}
+.consumable-actions {
+  pointer-events: none;
+}
+.consumable-actions button {
+  pointer-events: auto;
+}
+@media (max-width: 700px) {
+  .consumable-actions {
+    left: 12px;
+    transform: none;
+    width: calc(100% - 146px);
+    max-width: calc(100% - 146px);
+  }
+}

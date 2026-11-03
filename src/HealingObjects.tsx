@@ -271,7 +271,21 @@ export const HealingInterior = memo(function HealingInterior({
         position={[l.shelf.x, 0, l.shelf.z]}
         rotation-y={l.shelf.x > 0 ? -Math.PI / 2 : Math.PI / 2}
         name="bookshelf"
+        onClick={(e) => {
+          if (e.delta > 5) return;
+          e.stopPropagation();
+          onBook(room % BOOKS.length);
+        }}
       >
+        <mesh name="bookshelf-touch-target" position={[0, 1.18, 0]}>
+          <boxGeometry args={[1.55, 2.35, 0.48]} />
+          <meshBasicMaterial
+            transparent
+            opacity={0}
+            depthWrite={false}
+            colorWrite={false}
+          />
+        </mesh>
         {[-0.74, 0.74].map((x) => (
           <Box
             key={x}
@@ -295,6 +309,15 @@ export const HealingInterior = memo(function HealingInterior({
               onBook(i);
             }}
           >
+            <mesh name={`book-touch-target:${i}`} position={[0, 0, 0.16]}>
+              <boxGeometry args={[0.225, 0.5, 0.32]} />
+              <meshBasicMaterial
+                transparent
+                opacity={0}
+                depthWrite={false}
+                colorWrite={false}
+              />
+            </mesh>
             <Box p={[0, 0, 0]} s={[0.17, 0.4, 0.28]} color={b.color} />
             <Box p={[0, 0.1, 0.145]} s={[0.1, 0.015, 0.005]} color="#a19176" />
             <Html

@@ -1,3 +1,4 @@
+import { useInteractionHints } from "./useInteractionHints";
 import { loadCameraMode, saveCameraMode } from "./camera";
 import { useSharedRoom } from "./useSharedRoom";
 import {
@@ -134,7 +135,10 @@ export default function App() {
   function openBook(i: number) {
     if (room === null) return;
     clearAuto();
+    setContext(null);
     setSelectedBook(i);
+    if (player.current.reading && player.current.seat !== null)
+      player.current.book = i;
     setQuote(THOUGHTS[Math.floor(Math.random() * THOUGHTS.length)]);
     audio.play("page");
     setPanel("book");
@@ -207,7 +211,9 @@ export default function App() {
     });
     setSeated(true);
     setContext(null);
-    startAction("sit", () => {});
+    startAction("sit", () => {
+      if (player.current.reading) audio.play("page");
+    });
     setNotice(
       selectedBook !== null ? "책과 함께 잠깐 쉬어요." : "편안하게 앉았어요.",
     );
@@ -290,6 +296,37 @@ export default function App() {
   const [selectedDrink, setSelectedDrink] = useState<Drink>("latte"),
     [busy, setBusy] = useState(false),
     [cameraReset, setCameraReset] = useState(0);
+  const hints = useInteractionHints(
+    room,
+    nearby,
+    !!context || panel !== null || seated || busy || pendingInteraction,
+    () =>
+      !controls.current.cameraBusy &&
+      !controls.current.destination &&
+      controls.current.keys.size === 0 &&
+      Math.hypot(controls.current.x, controls.current.z) < 0.03,
+  );
+  const interactionTarget = context || hints.active;
+  useEffect(() => {
+    if (!seated || !player.current.reading || busy) return;
+    const timer = setInterval(() => {
+      if (
+        player.current.reading &&
+        player.current.action === "idle" &&
+        document.visibilityState === "visible"
+      )
+        audio.play("page");
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [seated, player.current.reading, busy, room]);
+  function closePanel() {
+    if (panel === "book") {
+      hints.dismiss({ kind: "book", id: (room ?? 1) % BOOKS.length });
+      if (selectedBook !== null)
+        hints.dismiss({ kind: "book", id: selectedBook });
+    }
+    setPanel(null);
+  }
   const actionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function rerollName() {
     const next = randomNickname(name);
@@ -817,19 +854,20 @@ export default function App() {
               ✎ 방명록
             </button>
           </div>
-          {(context || nearby) && !panel && !seated && (
+          {interactionTarget && !panel && !seated && (
             <InteractionPanel
-              target={(context || nearby)!}
+              target={interactionTarget}
               state={garden.state}
               ready={garden.ready}
               busy={busy || pendingInteraction}
               selectedBook={selectedBook}
               onClose={() => {
+                hints.dismiss(interactionTarget);
                 setContext(null);
-                setNearby(null);
               }}
               onAct={() => {
-                const target = (context || nearby)!;
+                const target = interactionTarget;
+                setContext(target);
                 if (target.kind === "book") openBook(target.id);
                 else if (target.kind === "chair") goSit(target.id);
                 else waterPot(target.id);
@@ -837,6 +875,15 @@ export default function App() {
             />
           )}
           <div className="consumable-actions">
+            {selectedBook === null && !busy && !panel && (
+              <button
+                className="reading-action"
+                aria-label="책 읽기"
+                onClick={() => openBook((room ?? 1) % BOOKS.length)}
+              >
+                📖 책 읽기
+              </button>
+            )}
             {selectedBook !== null && !seated && !busy && (
               <button
                 aria-label="독서 의자로 이동"
@@ -858,7 +905,7 @@ export default function App() {
                   else setNotice("독서 자리에 손님이 쉬고 있어요.");
                 }}
               >
-                📖 독서 의자로
+                📖 책 읽기 · 독서 의자로
               </button>
             )}
             {seated && selectedBook !== null && !busy && (
@@ -1018,7 +1065,7 @@ export default function App() {
         <div
           className="modal-backdrop"
           onPointerDown={(e) => {
-            if (e.target === e.currentTarget) setPanel(null);
+            if (e.target === e.currentTarget) closePanel();
           }}
         >
           <section
@@ -1036,14 +1083,14 @@ export default function App() {
             }
             className="modal"
             onKeyDown={(e) => {
-              if (e.key === "Escape") setPanel(null);
+              if (e.key === "Escape") closePanel();
             }}
           >
             <button
               autoFocus
               className="close"
               aria-label="닫기"
-              onClick={() => setPanel(null)}
+              onClick={closePanel}
             >
               ×
             </button>
@@ -1074,6 +1121,19 @@ export default function App() {
             </p>
             {panel === "book" ? (
               <div className="reading-modal">
+                <div className="book-choices" role="group" aria-label="책 선택">
+                  {BOOKS.map((book, i) => (
+                    <button
+                      key={book.title}
+                      aria-label={`${book.title} 선택`}
+                      aria-pressed={selectedBook === i}
+                      onClick={() => openBook(i)}
+                      style={{ background: book.color }}
+                    >
+                      {book.title}
+                    </button>
+                  ))}
+                </div>
                 <div
                   className="book-preview"
                   style={
@@ -1086,7 +1146,7 @@ export default function App() {
                   <i />
                 </div>
                 <blockquote>{quote}</blockquote>
-                <button className="primary" onClick={() => setPanel(null)}>
+                <button className="primary" onClick={closePanel}>
                   이 문장과 쉬어가기
                 </button>
                 <small>독서 의자에 앉으면 책을 펼칠 수 있어요.</small>

@@ -22,6 +22,7 @@ export default defineConfig({
         "cafe.spec.ts",
         "camera-follow.spec.ts",
         "third-person-follow.spec.ts",
+        "reading-hints.spec.ts",
         "third-local.spec.ts",
         "fourth-local.spec.ts",
       ],

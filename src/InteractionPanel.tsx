@@ -62,7 +62,7 @@ export default function InteractionPanel({
             ? "앉기"
             : target.kind === "pot"
               ? "물주기"
-              : "책 열기"
+              : "책 읽기"
         }
         disabled={
           busy ||
@@ -73,7 +73,7 @@ export default function InteractionPanel({
         onClick={onAct}
       >
         {target.kind === "book"
-          ? "책 열기"
+          ? "📖 책 읽기"
           : target.kind === "chair"
             ? occupied
               ? "쉬고 있는 자리"
